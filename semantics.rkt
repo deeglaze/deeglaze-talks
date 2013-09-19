@@ -59,7 +59,8 @@
 
   (define (semantics)
     ;; Pushdown is motivated. Let's talk about easy.
-    (vl-append (production @idtt{e} @idtt{x} (code (e e)) (lam))
+    (vl-append gap-size
+               (production @idtt{e} @idtt{x} (code (e e)) (lam))
                (production @idtt{v} (lam))
                (production @ctt{E} @tt{[]} Ee vE)
                (blank 100)
@@ -339,10 +340,10 @@
      (define a-alloc (hc-append a (with24 @tt{ = alloc(ς)})))
 
      (define side-condition
-       (cond
-        [(= stage sCESK) (lt-superimpose (ghost a-alloc) a-fresh)]
-        [(<= saCESK stage sfade) (lt-superimpose (ghost a-fresh) a-alloc)]
-        [else (lt-superimpose (ghost a-alloc) (ghost a-fresh))]))
+       (pict-cond
+        [(= stage sCESK) a-fresh]
+        [(<= saCESK stage sfade) a-alloc]
+        [else (blank 0)]))
 
      (define pict* (vc-append 0 (if (abs-comp?) (blank 0) legend) rules
                               (if (= stage sfade)

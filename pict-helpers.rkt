@@ -138,12 +138,16 @@
 
 (define (filled-rounded-rectangle-frame pict 
                                         #:bgcolor [bgcolor #f]
+                                        #:scale [scale 1]
+                                        #:x-scale [x-scale 1]
+                                        #:y-scale [y-scale 1]
                                         #:corner-radius [corner-radius -0.25]
                                         #:angle [angle 0]
                                         #:draw-border? [draw-border? #t]
                                         #:border-color [border-color #f])
   (define rect
-    (filled-rounded-rectangle (pict-width pict) (pict-height pict)
+    (filled-rounded-rectangle (* x-scale scale (pict-width pict))
+                              (* y-scale scale (pict-height pict))
                              corner-radius
                              #:angle angle
                              #:draw-border? draw-border?))
