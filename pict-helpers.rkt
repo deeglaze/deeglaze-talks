@@ -5,6 +5,8 @@
          slideshow/base
          unstable/gui/slideshow
          racket/draw
+         (for-syntax syntax/parse)
+         syntax/parse/define
          (except-in "color-scheme.rkt" addr))
 (provide filled-rounded-rectangle-frame
          filled-flash-frame
@@ -16,16 +18,30 @@
          plug call join-one ext-one subst
          extend-env extend-store join-store
          ntuple nstruct pin-under-all mk-center
-         ⟼ 
+         ⟼
          use-store use-env use-map
          production
          where-clause
          pin-over-tag
          pin-under-tag
          progressive-table)
+(define (nonneg-real? x) (and (real? x) (>= x 0)))
+(define style/c
+  (one-of/c 'transparent 'solid 'xor 'hilite
+            'dot 'long-dash 'short-dash 'dot-dash
+            'xor-dot 'xor-long-dash 'xor-short-dash
+            'xor-dot-dash))
+(define (within-width-and-height w h)
+  (make-contract #:name (format "within width and height ~a ~a" w h)
+                 #:first-order
+                 (λ (rw)
+                    (define 2v (* 2 rw))
+                    (and (positive? (- w 2v))
+                         (positive? (- h 2v))))))
 ;; different constructors for coloring stuff
 (provide/contract [memo (string? . -> . pict?)]
                   [edge (string? . -> . pict?)]
+                  [colorize-if (any/c pict? color/c . -> . pict?)]
                   [metacons (string? string? . -> . pict?)]
                   [metac (string? . -> . pict?)]
                   [addr (string? . -> . pict?)]
@@ -55,10 +71,102 @@
                   [closure (string? pict? . -> . pict?)]
                   [iclosure (string? string? . -> . pict?)]
                   [encircle-tagged (->* (pict?) (#:border-width real?
-                                                 #:color color/c) 
+                                                 #:color color/c)
                                         #:rest (listof symbol?) pict?)]
+                  [thick-ellipse (->* (nonneg-real? nonneg-real?
+                                       (real-in 0 255)
+                                       color/c)
+                                      (#:fill-color (or/c #f color/c))
+                                      pict?)]
+                  [thick-filled-rounded-rectangle
+                   (->* (nonneg-real? nonneg-real?)
+                        (real?
+                         #:color color/c
+                         #:style style/c
+                         #:angle real?
+                         #:border-width nonneg-real?
+                         #:border-color (or/c #f color/c)
+                         #:border-style style/c)
+                        pict?)]
+                  [annulus
+                   (->i ([w nonneg-real?]
+                         [h nonneg-real?]
+                         [rw (w h) (and/c nonneg-real? (within-width-and-height w h))])
+                        [#:color [color (or/c #f color/c)]
+                         #:style [style style/c]
+                         #:border-width [border-width nonneg-real?]
+                         #:border-color [border-color (or/c #f color/c)]
+                         #:border-style [border-style style/c]]
+                        [result pict?])]
                   [grn color/c]
                   [constructor (->* (string?) #:rest (listof pict?) pict?)])
+
+;; brush/pen not parameters, unfortunately.
+;; Imperative save-restore to the "rescue."
+(begin-for-syntax
+ (define-syntax-class (gsr dc-stx)
+   #:attributes (g s do)
+   (pattern [g:id s:id (~optional (~seq #:if guard:expr)) r:expr ...]
+            #:with do (if (attribute guard)
+                          #`(unless guard (send #,dc-stx s r ...))
+                          #`(send #,dc-stx s r ...)))))
+(define-simple-macro (with-save dc (~var p (gsr #'dc)) body ...)
+  (let* ([dcv dc]
+         [v (send dcv p.g)])
+    p.do
+    body ...
+    (send dcv p.s v)))
+(define-syntax (with-save* stx)
+  (syntax-parse stx
+    [(_ dc () body ...) (syntax/loc stx (let () body ...))]
+    [(_ dc (~and (give gives ...)
+                 ((~var p (gsr #'dcv)) (~var ps (gsr #'dcv)) ...))
+         body ...)
+     (syntax/loc stx (let ([dcv dc])
+                       (with-save dcv give
+                                  (with-save* dcv (gives ...) body ...))))]))
+
+;; ellipse/border does the wrong thing.
+(define (thick-ellipse ew eh thickness color #:fill-color [fill-color #f])
+  (define-values (fill-color* style)
+    (if fill-color
+        (values fill-color 'solid)
+        (values "white" 'transparent)))
+  (dc (λ (dc dx dy)
+         (with-save* dc ([get-brush set-brush (send the-brush-list find-or-create-brush fill-color* style)]
+                         [get-pen set-pen color thickness 'solid])
+           (send dc draw-ellipse dx dy ew eh)))
+      ew eh))
+
+(define (annulus w h rw
+                 #:color [color #f]
+                 #:style [style 'solid]
+                 #:border-color [border-color #f]
+                 #:border-width [border-width 1]
+                 #:border-style [border-style 'solid])
+  (dc (lambda (dc x y)
+        (define p (new dc-path%))
+        (define w2 (/ w 2))
+        (define h2 (/ h 2))
+        (define 2rw (* 2 rw))
+        
+        (send p move-to (- w rw) h2)
+        (send p arc rw rw (- w 2rw) (- h 2rw) 0 (* 2 pi))
+        (send p move-to w h2)
+        (send p arc 0 0 w h 0 (* 2 pi))
+        (send p translate x y)
+        (send p close)
+        
+        (define brush (if color
+                          (send the-brush-list find-or-create-brush color style)
+                          (send the-brush-list find-or-create-brush "white" 'transparent)))
+        (define pen (if border-color
+                        (send the-pen-list find-or-create-pen border-color border-width border-style)
+                        (send the-pen-list find-or-create-pen "black" 1 'transparent)))
+        (with-save* dc ([get-brush set-brush brush]
+                        [get-pen set-pen pen])
+          (send dc draw-path p)))
+      w h))
 
 (define (mk-center x y base top)
   (values (+ x (/ (pict-width base) 2)
@@ -136,30 +244,49 @@
 
 (define grn (make-object color% #x10 #xBB #x10))
 
-(define (filled-rounded-rectangle-frame pict 
-                                        #:bgcolor [bgcolor #f]
+(define (colorize-if b p c) (if b (colorize p c) p))
+
+(define (thick-filled-rounded-rectangle w h [corner-radius -0.25]
+                                        #:color [color "black"]
+                                        #:style [style 'solid]
+                                        #:angle [angle 0]
+                                        #:border-width [border-width 1]
+                                        #:border-color [border-color #f]
+                                        #:border-style [border-style 'solid])
+    (let ([dc-path (new dc-path%)])
+      (send dc-path rounded-rectangle 0 0 w h corner-radius)
+      (send dc-path rotate angle)
+      (let-values ([(x y w h) (send dc-path get-bounding-box)])
+        (dc (λ (dc dx dy) 
+              (with-save* dc ([get-brush set-brush
+                                         (send the-brush-list find-or-create-brush color style)]
+                              [get-pen set-pen #:if border-color border-color border-width border-style])
+                (send dc draw-path dc-path (- dx x) (- dy y))))
+            w h))))
+
+(define (filled-rounded-rectangle-frame pict
+                                        #:color [color "white"]
                                         #:scale [scale 1]
                                         #:x-scale [x-scale 1]
                                         #:y-scale [y-scale 1]
                                         #:corner-radius [corner-radius -0.25]
                                         #:angle [angle 0]
-                                        #:draw-border? [draw-border? #t]
-                                        #:border-color [border-color #f])
+                                        #:border-width [border-width 1]
+                                        #:border-color [border-color "black"])
+  (define dx (* x-scale scale (pict-width pict)))
+  (define dy (* y-scale scale (pict-height pict)))
   (define rect
-    (filled-rounded-rectangle (* x-scale scale (pict-width pict))
-                              (* y-scale scale (pict-height pict))
-                             corner-radius
-                             #:angle angle
-                             #:draw-border? draw-border?))
-  (cc-superimpose 
-   (if bgcolor
-       (colorize rect bgcolor)
-       rect)
-   pict))
+    (thick-filled-rounded-rectangle dx dy
+                                    corner-radius
+                                    #:color color
+                                    #:angle angle
+                                    #:border-width border-width
+                                    #:border-color border-color))
+  (cc-superimpose rect pict))
 
-(define (filled-flash-frame pict 
+(define (filled-flash-frame pict
                             #:scale [scale 3/2]
-                            #:bgcolor [bgcolor #f]
+                            #:color [color #f]
                             #:outline [outline #f]
                             #:n-points [n-points 10]
                             #:spike-fraction [spike-fraction 0.25]
@@ -167,24 +294,21 @@
   (define flash
     (filled-flash (* scale (pict-width pict)) (* scale (pict-height pict))
                   n-points spike-fraction rotation))
-  (define colored
-    (if bgcolor
-       (colorize flash bgcolor)
-       flash))
-  (cc-superimpose 
+
+  (cc-superimpose
    (if outline
        (colorize (outline-flash (* scale (pict-width pict)) (* scale (pict-height pict))
                                 n-points spike-fraction rotation)
                  outline)
        (blank))
-   colored
+   (colorize-if color flash color)
    pict))
 
 (define (surround d left right picts)
   (apply hc-append d left (append picts (list right))))
 
 (define paren-color (make-parameter "black"))
-(define (pcolor p) (colorize p (paren-color)))
+(define (pcolor p) (colorize* p (paren-color)))
 (define (angled inner)
   (surround 0 (pcolor (t "〈")) (pcolor (t "〉"))
             (list (it inner))))
@@ -204,27 +328,21 @@
 (define (supscript-right pict sub)
   (hc-append pict (superscript (clo sub))))
 (define (production left . rights)
-  (apply hc-append 5.0 left (colorize (t "::=") "darkgray") (list-join rights (colorize (t "|") "darkgray"))))
-
-(define (list-join lst sep)
-  (let loop ([lst lst])
-    (cond [(empty? lst) lst]
-          [(empty? (rest lst)) lst]
-          [else (list* (first lst) sep (loop (rest lst)))])))
+  (apply hc-append 5.0 left (colorize (t "::=") "darkgray") (add-between rights (colorize (t "|") "darkgray"))))
 
 (define (constructor name . args)
-  (define colored (colorize (t name) "blue"))
+  (define colored (colorize* (t name) "blue"))
   (cond [(empty? args) colored]
         [else (apply hc-append
-                     colored 
+                     colored
                      (it "(")
-                     (append (list-join args (it ","))
+                     (append (add-between args (it ","))
                              (list (it ")"))))]))
 
 (define (icons name . args)
   (apply constructor name (map it args)))
 
-(define (expr p) (colorize p (make-object color% #x00 #x66 #x00)))
+(define (expr p) (colorize* p (make-object color% #x00 #x66 #x00)))
 (define (iexpr text) (expr (it text)))
 
 (define (iclosure e ρ) (tuple (iexpr e) (env ρ)))
@@ -243,7 +361,7 @@
 (define (val v) (it v))
 (define (store s) (it s))
 (define (stack Ξ) (it Ξ))
-(define (addr a) (colorize (it a) (make-object color% #x66 #x00 #xFF)))
+(define (addr a) (colorize* (it a) (make-object color% #x66 #x00 #xFF)))
 (define (clo c) (it c))
 (define (metac C) (it C))
 (define (metacons κ C) (hc-append (icons κ) (it "·") (metac C)))
@@ -259,11 +377,11 @@
 (define (fn* v a) (constructor "fn" v (addr a)))
 
 (define (where-clause . picts)
-  (colorize (apply hc-append (t "where ") picts)
-            (make-object color% #x66 #x33 #x33)))
+  (colorize* (apply hc-append (t "where ") picts)
+             (make-object color% #x66 #x33 #x33)))
 
-(define (state . args) (apply angled (list-join args (it ","))))
-(define (tuple . args) (apply parens (list-join args (it ",")))) 
+(define (state . args) (apply angled (add-between args (it ","))))
+(define (tuple . args) (apply parens (add-between args (it ","))))
 
 ;; n stage : natural
 ;; stages: monotonically non-decreasing list of naturals
@@ -295,15 +413,15 @@
   (define-values (x y) (finder base path))
   (pin-under base x y (pict-fn (last path))))
 
-(define (pin-under-tag base finder tag pict-fn) 
+(define (pin-under-tag base finder tag pict-fn)
   (pin-at-tag pin-under base finder tag pict-fn))
-(define (pin-over-tag base finder tag pict-fn) 
+(define (pin-over-tag base finder tag pict-fn)
   (pin-at-tag pin-over base finder tag pict-fn))
 
 (define (encircle-tagged whole #:color [color grn] #:border-width [border-width 4] . tags)
   (define (encircle tagged)
-    (ellipse/border (pict-width tagged) (pict-height tagged)
-                    #:border-width border-width #:border-color color))
+    (thick-ellipse (pict-width tagged) (pict-height tagged)
+                   border-width color))
   (let loop ([tags tags] [img whole])
     (cond [(empty? tags) img]
           [else (loop (rest tags)

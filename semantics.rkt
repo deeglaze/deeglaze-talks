@@ -10,7 +10,7 @@
 
 (module+ slide-deck
   (provide semantics the-shift CESK-table a-state pushdown? abs-comp?
-           sCEK sCESK saCESK sfade smove sCESKM sCESKM-ret sCESKMΞ
+           sCEK sCESK sCESK* saCESK sfade smove sCESKM sCESKM-ret sCESKMΞ
            lazy σ-big abscomp)
   (require racket/trace)
   (define comma @tt{,})
@@ -21,6 +21,7 @@
   (define-syntax-rule (do-want . body) (parameterize ([current-main-font want]) . body))
   (define pushdown? (make-parameter #t))
   (define abs-comp? (make-parameter #f))
+  (define show-change? (make-parameter #t))
   (define (showP p b) (and (pushdown?) (show p b))) ;; ntuple treats #f different from ghosts
 
   (define Ee (code (#,(values @ctt{E}) e)))
@@ -60,7 +61,7 @@
   (define (semantics)
     ;; Pushdown is motivated. Let's talk about easy.
     (vl-append gap-size
-               (production @idtt{e} @idtt{x} (code (e e)) (lam))
+               (production @idtt{e} @idtt{x} (expr (parens @tt{e} @tt{e})) (lam))
                (production @idtt{v} (lam))
                (production @ctt{E} @tt{[]} Ee vE)
                (blank 100)
@@ -68,17 +69,26 @@
                           @tt{ ↦} (subscript @t{βv}) @tt{ }
                           (plug @ctt{E} (hc-append @idtt{e} (braces @idtt{x} @tt{:=} @idtt{v}))))))
 
-  (define konts
+  (define (konts)
     (table 2
            (list (tag-pict @tt{[]} 'hole) (tag-pict @tt{[]} 'mt)
                  (tag-pict Ee 'Ear) (tag-pict (fcons (nstruct "ar" @idtt{e} @idtt{ρ}) @ctt{κ}) 'ar)
                  (tag-pict vE 'Efn) (tag-pict (fcons (nstruct "fn" @idtt{v} @idtt{ρ}) @ctt{κ}) 'fn))
            (list rc-superimpose lc-superimpose) cc-superimpose 100 5))
+
+  (define (changed stage p when)
+    (define b (and (show-change?) (= stage when)))
+    (define p* (inset p 2))
+    (cc-superimpose
+     (show (colorize (filled-rounded-rectangle (pict-width p*) (pict-height p*))
+            "slateblue")
+           b)
+     (colorize-if b p* "white")))
   
-  (define (κ̂ σ? fresh?)
+  (define (κ̂ changed AAM? fresh?)
     (if (pushdown?) @ctt{κ}
-        (pict-if σ? (addr (if fresh? @tt{a} @tt{b})) @ctt{κ})))
-  (define (kont-items σ?)
+        (pict-if AAM? (changed (addr (if fresh? @tt{a} @tt{b})) sCESK*) @ctt{κ})))
+  (define (kont-items changed AAM?)
     (cons (hc-append @ctt{κ} @tt{ ∈ } @t{Kont})
           (if (pushdown?)
               (list @tt{ = } (hc-append @t{Frame} (superscript @t{*})))
@@ -86,54 +96,39 @@
                     (hc-append 5.0
                                @tt{[]}
                                (colorize (t "|") "dark gray")
-                               (fcons @ftt{φ} (κ̂ σ? #t)))))))
+                               (fcons @ftt{φ} (changed (κ̂ changed AAM? #t) sCESK*)))))))
 
   (define (the-shift)
+    (define konts* (konts))
     (vl-append (table 3
                       (append
                        (list 
                         (hc-append @idtt{ρ} @tt{ ∈ } @t{Env})
                         @tt{ = }
                         @t{Var → (Value × Env)})
-                       (kont-items #f))
+                       (kont-items (λ (x y) x) #f))
                       rcl cc-superimpose gap-size 5)
                (blank 60)
                (pin-arrow-line
                 10
                 (pin-arrow-line
                  10
-                 (pin-arrow-line 10 konts (find-tag konts 'hole) rc-find (find-tag konts 'mt) lc-find)
-                 (find-tag konts 'Ear) rc-find (find-tag konts 'ar) lc-find)
-                (find-tag konts 'Efn) rc-find (find-tag konts 'fn) lc-find)))
+                 (pin-arrow-line 10 konts* (find-tag konts* 'hole) rc-find (find-tag konts* 'mt) lc-find)
+                 (find-tag konts* 'Ear) rc-find (find-tag konts* 'ar) lc-find)
+                (find-tag konts* 'Efn) rc-find (find-tag konts* 'fn) lc-find)))
 
   (define (chσ*) (with24 (tag-pict (σtt @tt{σ}) 'σ)))
   (define (chσ′*) (with24 (tag-pict (σtt @tt{σ′}) 'σ′)))
-  (define (ρσ σ? abs?) 
-    (do-want
-     (with24
-      (table 3
-             (append
-              (list (hc-append @idtt{ρ} @tt{ ∈ } @t{Env})
-                    @tt{ = }
-                    (hc-append @t{Var → } (if σ? (addr @t{Addr}) @t{(Value × Env)})))
-              (if (pushdown?)
-                  '()
-                  (kont-items σ?))
-              (list (show (hc-append chσ @tt{ ∈ } @t{Store}) σ?)
-                    (show @tt{ = } σ?)
-                    (show (hc-append (addr @t{Addr})
-                                     @t{ → } (show @t{℘} abs?) @t{(Value × Env)})
-                          σ?)))
-             rcl cc-superimpose gap-size 5))))
-  (define ρx (with24 (call @idtt{ρ} @idtt{x})))
+  (define (ρx) (with24 (call @idtt{ρ} @idtt{x})))
 
-  (define-values (sCEK sCESK saCESK lazy σ-big abscomp sfade smove sCESKM sCESKM-ret sCESKMΞ)
-    (apply values (range 11)))
+  (define-values (sCEK sCESK sCESK* saCESK lazy σ-big abscomp sfade smove sCESKM sCESKM-ret sCESKMΞ)
+    (apply values (range 12)))
 
   (define (CESK-table stage [time #f])
     (do-want
      (define σ? (> stage sCEK))
-     (define abs? (> stage sCESK))
+     (define AAM? (and (not (pushdown?)) (>= stage sCESK*)))
+     (define abs? (>= stage saCESK))
      (define M? (> stage smove))
      (define show-rt? (> stage sCESKM))
      (define Ξ? (> stage sCESKM-ret))
@@ -143,14 +138,18 @@
      (define σ-problem? (= stage σ-big))
      (define e-problem? (= stage abscomp))
 
+     (define (changed* p when) (changed stage p when))
+     (define (κ̂* fresh?) (κ̂ changed* AAM? fresh?))
      (define OR (with24 (text "or" null 20)))
      (define stepto (lt-superimpose (ghost OR) (with24 @tt{↦})))
+
+     (define-values (chσ chσ′ M M′ Ξ Ξ′ ctx a) (constants))
 
      ;; need for animation:
      (define (call-pict tag?)
        (tag-pict
-        (with24 (ntuple (code v) @idtt{ρ} (show (if tag? (chσ*) chσ) σ?)
-                        (fcons (nstruct "fn" (lam) @idtt{ρ′}) (κ̂ σ? #f))
+        (with24 (ntuple (expr @tt{v}) @idtt{ρ} (show (if tag? (chσ*) chσ) σ?)
+                        (fcons (nstruct "fn" (lam) @idtt{ρ′}) (κ̂* #f))
                         (showP M M?) (showP Ξ Ξ?)))
         'call))
 
@@ -164,6 +163,32 @@
        (if (abs-comp?)
            (hc-append (compile e) @tt{ = λ} (apply hc-append 5.0 (ghost-commas rest)) @tt{.})
            (apply ntuple e rest)))
+
+     (define (ρσ changed)
+       (do-want
+        (with24
+         (table 3
+                (append
+                 (list (hc-append @idtt{ρ} @tt{ ∈ } @t{Env})
+                       @tt{ = }
+                       (hc-append @t{Var → } (if σ? (addr @t{Addr}) @t{(Value × Env)})))
+                 (if (pushdown?)
+                     '()
+                     (kont-items changed AAM?))
+                 (list (show (hc-append chσ @tt{ ∈ } @t{Store}) σ?)
+                       (show @tt{ = } σ?)
+                       (show (hc-append (addr @t{Addr})
+                                        @t{ → }
+                                        (show (changed @t{℘} saCESK) abs?)
+                                        (if (pushdown?)
+                                            @t{(Value × Env)}
+                                            (pict-if AAM?
+                                                     (hc-append (t "(Value × Env")
+                                                                (changed (t " + Kont") sCESK*)
+                                                                (t ")"))
+                                                     @t{(Value × Env)})))
+                             σ?)))
+                rcl cc-superimpose gap-size 5))))
 
      (define call-elms
        (with24
@@ -187,22 +212,26 @@
                (if (pushdown?)
                    rhs
                    (hc-append rhs
-                              (show (hc-append
-                                     (blank 10) @ctt{κ} (pict-if abs? @tt{ ∈ } @tt{ = })
-                                     (call (chσ*) (addr @tt{b})))
-                                    σ?))))
+                              (changed*
+                               (show (hc-append
+                                      (blank 10) @ctt{κ} (pict-if abs?
+                                                                  (changed* @tt{ ∈ } saCESK)
+                                                                  @tt{ = })
+                                      (call (chσ*) (addr @tt{b})))
+                                     AAM?)
+                               sCESK*))))
          (if M?
              (list (blank 0) OR
-                   (hc-append (ntuple (code v′) @idtt{ρ} @ctt{κ}
+                   (hc-append (ntuple (expr @tt{v′}) @idtt{ρ} @ctt{κ}
                                       (showP M #t) (showP Ξ′ Ξ?))
-                              @t{ if } (code v′) @tt{ ∈ } (call M ctx)))
+                              @t{ if } (expr @tt{v′}) @tt{ ∈ } (call M ctx)))
              (list)))))
 
      (define (σext elm)
        (define σ (chσ*))
        (with24
         (pict-if abs?
-                 (join-one σ a (braces elm))
+                 (changed* (join-one σ a (braces elm)) saCESK)
                  (ext-one σ a elm))))
 
      (define where-clause-elms
@@ -232,7 +261,7 @@
        (with24
         (map (λ (p) (show p show-rt?))
              (list ;; Return
-              (ntuple (code v) @idtt{ρ} (chσ*)
+              (ntuple (expr @tt{v}) @idtt{ρ} (chσ*)
                       (if (pushdown?)
                           (pict-if Ξ?
                                    (nstruct "rt" ctx)
@@ -241,7 +270,7 @@
                       #;(fcons (nstruct "rt" ctx) (if Ξ? @tt{[]} @ctt{κ})) (showP M #t) (showP Ξ Ξ?)
                       )
               @tt{↦}
-              (ntuple (code v) @idtt{ρ} (chσ*) @ctt{κ}
+              (ntuple (expr @tt{v}) @idtt{ρ} (chσ*) @ctt{κ}
                       (showP M′ #t) (showP Ξ Ξ?))
               (blank 0) (blank 0)
               (show (hc-append @t{ if } @ctt{κ} @tt{ ∈ } (call Ξ ctx)) Ξ?)
@@ -253,23 +282,23 @@
         (tag-pict
          (hc-append @t{ if }
                     (tuple @idtt{v} @idtt{ρ′})
-                    (pict-if abs? @tt{ ∈ } @tt{ = })
-                    (if σ? (call (chσ*) ρx) ρx))
+                    (pict-if abs? (changed* @tt{ ∈ } saCESK) @tt{ = })
+                    (if σ? (call (chσ*) (ρx)) (ρx)))
          'var-condition)))
 
      (define x-var
        (with24 (tag-pict @idtt{x} 'eval0)))
      (define fn-app
-       (with24 (tag-pict (code (e₀ e₁)) 'eval1)))
+       (with24 (tag-pict (expr (parens @tt{e₀} @tt{e₁})) 'eval1)))
 
      (define (app-rhs σid)
        (with24
         (ev-state (if (abs-comp?)
-                      (compile (code e₀))
-                      (code e₀)) @idtt{ρ} (show σid σ?)
+                      (compile (expr @tt{e₀}))
+                      (expr @tt{e₀})) @idtt{ρ} (show σid σ?)
                   (fcons (nstruct "ar" (if (abs-comp?)
                                            (compile @idtt{e₁})
-                                           @idtt{e₁}) @idtt{ρ}) (κ̂ σ? #t))
+                                           @idtt{e₁}) @idtt{ρ}) (κ̂* #t))
                   (showP M M?) (showP Ξ Ξ?))))
 
      (define elms
@@ -296,29 +325,32 @@
           (if (abs-comp?) (blank 0) @tt{↦})
           (cond [(pushdown?) (app-rhs (chσ*))]
                 [(abs-comp?) (app-rhs (chσ′*))]
-                [else (hc-append (app-rhs (chσ′*)) app-cond)]))
+                [else (hc-append (app-rhs (pict-if (= stage sCESK) (chσ*) (changed* (chσ′*) sCESK*)))
+                                 (show (changed* app-cond sCESK*)
+                                       (>= stage sCESK*)))]))
          (if (abs-comp?) (list (blank 0) (blank 0) app-cond) '())
          (list         
           ;; application - eval argument position
           (rt-superimpose
            (ghost (call-pict #f))
-           (ntuple (code v) @idtt{ρ} (show (chσ*) σ?)
-                   (fcons (nstruct "ar" @idtt{e} @idtt{ρ}) (κ̂ σ? #f))
+           (ntuple (expr @tt{v}) @idtt{ρ} (show (chσ*) σ?)
+                   (fcons (nstruct "ar" @idtt{e} @idtt{ρ}) (κ̂* #f))
                    (showP M M?) (showP Ξ Ξ?)))
           @tt{↦}
-          (ev-state (code e) @idtt{ρ} (show (chσ*) σ?)
-                    (fcons (nstruct "fn" @idtt{v} @idtt{ρ}) (κ̂ σ? #f))
+          (ev-state (expr @tt{e}) @idtt{ρ} (show (chσ*) σ?)
+                    (fcons (nstruct "fn" @idtt{v} @idtt{ρ}) (κ̂* #f))
                     (showP M M?) (showP Ξ Ξ?))))))
 
      (define tyellow (make-object color% #xFF #xFF #x00 0.8))
 
      (define non-call (table 3 elms rcl cc-superimpose gap-size 30))
-     (define legend
+     (define (legend)
        (cond 
         [(= stage sfade)
-         (let ([ρσ (ρσ σ? abs?)]) (fade-pict time ρσ (ghost ρσ)))]
+         (let ([ρσ (ρσ changed*)])
+          (fade-pict time ρσ (ghost ρσ)))]
         [(>= stage smove) (blank 0)]
-        [else (show (ρσ σ? abs?) (not (= stage smove)))]))
+        [else (show (ρσ changed*) (not (= stage smove)))]))
      (define call-reduction
        (table 3 call-elms rcl cc-superimpose gap-size 30))
      (define call-where
@@ -337,15 +369,15 @@
                           call-where
                           (if M? call-ret (blank 0)))))
      (define a-fresh (hc-append a (with24 @t{ fresh})))
-     (define a-alloc (hc-append a (with24 @tt{ = alloc(ς)})))
+     (define a-alloc (hc-append a (changed* (with24 @tt{ = alloc(ς)}) saCESK)))
 
      (define side-condition
        (pict-cond
-        [(= stage sCESK) a-fresh]
+        [(or (= stage sCESK) (= stage sCESK*)) a-fresh]
         [(<= saCESK stage sfade) a-alloc]
         [else (blank 0)]))
 
-     (define pict* (vc-append 0 (if (abs-comp?) (blank 0) legend) rules
+     (define pict* (vc-append 0 (if (abs-comp?) (blank 0) (legend)) rules
                               (if (= stage sfade)
                                   (fade-pict time side-condition (ghost side-condition))
                                   side-condition)))
@@ -355,18 +387,18 @@
         [lazy-problem?
          (define path (find-tag pict* 'var-condition))
          (unless path (error 'wat))
-         (define frame (filled-flash-frame (ghost var-condition) #:bgcolor tyellow))
+         (define frame (filled-flash-frame (ghost var-condition) #:color tyellow))
          (define-values (dx dy) (lt-find pict* path))
          (define-values (dx* dy*) (mk-center dx dy var-condition frame))
          (pin-under pict* dx* dy* frame)]
         [σ-problem?
          (pin-under-all
-          (pin-under-all pict* 'σ (filled-flash-frame (ghost (chσ*)) #:bgcolor tyellow))
-          'σ′ (filled-flash-frame (ghost (chσ′*)) #:bgcolor tyellow))]
+          (pin-under-all pict* 'σ (filled-flash-frame (ghost (chσ*)) #:color tyellow))
+          'σ′ (filled-flash-frame (ghost (chσ′*)) #:color tyellow))]
         [e-problem?
          (pin-under-all
-          (pin-under-all pict* 'eval0 (filled-flash-frame (ghost x-var) #:bgcolor tyellow))
-          'eval1 (filled-flash-frame (ghost fn-app) #:bgcolor tyellow))]
+          (pin-under-all pict* 'eval0 (filled-flash-frame (ghost x-var) #:color tyellow))
+          'eval1 (filled-flash-frame (ghost fn-app) #:color tyellow))]
         [else pict*]))
 
      ;; stupid pixel-pushing
