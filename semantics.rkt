@@ -11,7 +11,7 @@
 (module+ slide-deck
   (provide semantics the-shift CESK-table a-state pushdown? abs-comp?
            sCEK sCESK sCESK* saCESK sfade smove sCESKM sCESKM-ret sCESKMΞ
-           lazy σ-big abscomp)
+           lazy lazy-fix σ-big abscomp compile)
   (require racket/trace)
   (define comma @tt{,})
   (define old-main-font (current-main-font))
@@ -28,12 +28,13 @@
   (define vE (code (v #,(values @ctt{E}))))
 
   (define rcl (list rc-superimpose cc-superimpose lc-superimpose))
+  (define (compile p) (hc-append (tt "\u27e6") p (tt "\u27e7")))
 
   (define (fcons e lst) (do-want (hc-append e @tt{:} lst)))
   (define (a-state)
     (vc-append
      (with-size 48
-                (ntuple @idtt{e} @idtt{ρ} (σtt @tt{σ}) @ctt{κ} (showP (Mtt @tt{M}) #t) (showP (Ξtt @tt{Ξ}) #t)))
+                (ntuple @idtt{e} @idtt{ρ} @σtt{σ} @ctt{κ} (showP @Mtt{M} #t) (showP @Ξtt{Ξ} #t)))
      (blank 50)
      (with-size 30
                 (table 3
@@ -41,21 +42,21 @@
                              @tt{ = }
                              (hc-append @t{Var → } (addr @t{Addr}))
                      
-                             (hc-append (σtt @tt{σ}) @tt{ ∈ } @t{Store}) 
+                             (hc-append @σtt{σ} @tt{ ∈ } @t{Store}) 
                              @tt{ = }
                              (hc-append (addr @t{Addr}) @t{ → ℘(Value × Env)})
 
-                             (hc-append (Mtt @tt{M}) @tt{ ∈ } @t{Memo})
+                             (hc-append @Mtt{M} @tt{ ∈ } @t{Memo})
                              @tt{ = }
                              (hc-append @t{Expr × Env × Store → ℘(Value)})
 
-                             (hc-append (Ξtt @tt{Ξ}) @tt{ ∈ } @t{KTable})
+                             (hc-append @Ξtt{Ξ} @tt{ ∈ } @t{KTable})
                              @tt{ = }
                              (hc-append @t{Expr × Env × Store → ℘(Kont)}))
                        (list rc-superimpose cc-superimpose lc-superimpose) cc-superimpose 30 15))
      (blank 20)
      (vl-append
-      (production @ctt{κ} @tt{[]} (nstruct "rt" @idtt{e} @idtt{ρ} (σtt @tt{σ})) (fcons @idtt{φ} @ctt{κ}))
+      (production @ctt{κ} @tt{[]} (nstruct "rt" @idtt{e} @idtt{ρ} @σtt{σ}) (fcons @idtt{φ} @ctt{κ}))
       (production @ftt{φ} (nstruct "ar" @idtt{e} @idtt{ρ}) (nstruct "fn" @idtt{v} @idtt{ρ})))))
 
   (define (semantics)
@@ -117,12 +118,12 @@
                  (find-tag konts* 'Ear) rc-find (find-tag konts* 'ar) lc-find)
                 (find-tag konts* 'Efn) rc-find (find-tag konts* 'fn) lc-find)))
 
-  (define (chσ*) (with24 (tag-pict (σtt @tt{σ}) 'σ)))
-  (define (chσ′*) (with24 (tag-pict (σtt @tt{σ′}) 'σ′)))
+  (define (chσ*) (with24 (tag-pict @σtt{σ} 'σ)))
+  (define (chσ′*) (with24 (tag-pict @σtt{σ′} 'σ′)))
   (define (ρx) (with24 (call @idtt{ρ} @idtt{x})))
 
-  (define-values (sCEK sCESK sCESK* saCESK lazy σ-big abscomp sfade smove sCESKM sCESKM-ret sCESKMΞ)
-    (apply values (range 12)))
+  (define-values (sCEK sCESK sCESK* saCESK lazy lazy-fix σ-big abscomp sfade smove sCESKM sCESKM-ret sCESKMΞ)
+    (apply values (range 13)))
 
   (define (CESK-table stage [time #f])
     (do-want
@@ -135,6 +136,7 @@
      (define fade? (= stage sfade))
      (define move? (= stage smove))
      (define lazy-problem? (= stage lazy))
+     (define lazy-fix? (= stage lazy-fix))
      (define σ-problem? (= stage σ-big))
      (define e-problem? (= stage abscomp))
 
@@ -148,9 +150,16 @@
      ;; need for animation:
      (define (call-pict tag?)
        (tag-pict
-        (with24 (ntuple (expr @tt{v}) @idtt{ρ} (show (if tag? (chσ*) chσ) σ?)
-                        (fcons (nstruct "fn" (lam) @idtt{ρ′}) (κ̂* #f))
-                        (showP M M?) (showP Ξ Ξ?)))
+        (with24 (apply 
+                 ntuple
+                 (append
+                  (if #f ;;lazy-fix?
+                      (list (expr @tt{v}))
+                      (list (expr @tt{v}) @idtt{ρ}))
+                  (list
+                   (show (if tag? (chσ*) chσ) σ?)
+                   (fcons (nstruct "fn" (lam) @idtt{ρ′}) (κ̂* #f))
+                   (showP M M?) (showP Ξ Ξ?)))))
         'call))
 
      (define (ev-state e . rest)
@@ -158,7 +167,6 @@
            (call e (apply hc-append 5.0 (ghost-commas rest)))
            (apply ntuple e rest)))
 
-     (define (compile p) (hc-append (tt "\u27e6") p (tt "\u27e7")))
      (define (ev-lhs e . rest)
        (if (abs-comp?)
            (hc-append (compile e) @tt{ = λ} (apply hc-append 5.0 (ghost-commas rest)) @tt{.})
@@ -227,23 +235,31 @@
                               @t{ if } (expr @tt{v′}) @tt{ ∈ } (call M ctx)))
              (list)))))
 
-     (define (σext elm)
+     (define (σext elm abs-wrap)
        (define σ (chσ*))
        (with24
         (pict-if abs?
-                 (changed* (join-one σ a (braces elm)) saCESK)
+                 (changed* (join-one σ a (abs-wrap elm)) saCESK)
                  (ext-one σ a elm))))
 
      (define where-clause-elms
        (with24
+        (define (callσ lazy-fix?)
+          (σext (if lazy-fix?
+                    (changed* (call @t{force} @idtt{v}) lazy-fix)
+                    (tuple @idtt{v} @idtt{ρ}))
+                (if lazy-fix? values braces)))
         (append
          (list (ghost (call-pict #f))
                (ghost (lt-superimpose @t{where} OR))
                (hc-append 
                 @t{where } @idtt{ρ″} @tt{ = } (ext-one @idtt{ρ′} @idtt{x}
                                                        (if σ? a (tuple @idtt{v} @idtt{ρ}))))
-               (blank 0) (blank 0) (show (hc-append (ghost @t{where }) (chσ′*) @tt{ = }
-                                                    (σext (tuple @idtt{v} @idtt{ρ})))
+               (blank 0) (blank 0) (show (hc-append (ghost @t{where })
+                                                    (chσ′*)
+                                                    @tt{ = }
+                                                    (lt-superimpose (show (callσ #f) (not lazy-fix?))
+                                                                    (show (callσ #t) lazy-fix?)))
                                          σ?))
          (if M?
              (append
@@ -304,20 +320,28 @@
      (define elms
        (with24
         (define app-cond
-          (show (hc-append (blank 10) (chσ′*) @tt{ = } (σext @ctt{κ})) σ?))
+          (show (hc-append (blank 10) (chσ′*) @tt{ = } (σext @ctt{κ} braces)) σ?))
+        (define (var-rhs lazy-fix?)
+          (ntuple (if lazy-fix? ;; deliberately not pict-if
+                      (changed* (constructor "addr" (ρx)) lazy-fix)
+                      @idtt{v})
+                  (if lazy-fix? (blank 0) @idtt{ρ′})
+                  (show (chσ*) σ?)
+                  @ctt{κ}
+                  (showP M M?) (showP Ξ Ξ?)))
         (append
          (list
           (ev-lhs x-var
                   @idtt{ρ} (show (chσ*) σ?) @ctt{κ} (showP M M?) (showP Ξ Ξ?))
           (if (abs-comp?) (blank 0) @tt{↦})
-          (ntuple @idtt{v} @idtt{ρ′} (show (chσ*) σ?) @ctt{κ}
-                  (showP M M?) (showP Ξ Ξ?)))
+          (lc-superimpose (show (var-rhs #f) (not lazy-fix?))
+                          (show (var-rhs #t) lazy-fix?)))
          (if (abs-comp?)
              '()
              (list
               ;; variable lookup
               (blank 0) (blank 0)
-              var-condition))
+              (show var-condition (not lazy-fix?))))
           ;; application - eval function position
          (list
           (ev-lhs fn-app @idtt{ρ} (show (chσ*) σ?) @ctt{κ}
@@ -333,9 +357,15 @@
           ;; application - eval argument position
           (rt-superimpose
            (ghost (call-pict #f))
-           (ntuple (expr @tt{v}) @idtt{ρ} (show (chσ*) σ?)
-                   (fcons (nstruct "ar" @idtt{e} @idtt{ρ}) (κ̂* #f))
-                   (showP M M?) (showP Ξ Ξ?)))
+           (apply ntuple
+                  (append
+                   (if #f ;;lazy-fix?
+                       (list (expr @tt{v}))
+                       (list (expr @tt{v}) @idtt{ρ}))
+                   (list
+                    (show (chσ*) σ?)
+                    (fcons (nstruct "ar" @idtt{e} @idtt{ρ}) (κ̂* #f))
+                    (showP M M?) (showP Ξ Ξ?)))))
           @tt{↦}
           (ev-state (expr @tt{e}) @idtt{ρ} (show (chσ*) σ?)
                     (fcons (nstruct "fn" @idtt{v} @idtt{ρ}) (κ̂* #f))

@@ -22,7 +22,7 @@
          use-store use-env use-map
          production
          where-clause
-         pin-over-tag
+         pin-over-tag pcolor
          pin-under-tag
          progressive-table)
 (define (nonneg-real? x) (and (real? x) (>= x 0)))
@@ -47,8 +47,12 @@
                   [addr (string? . -> . pict?)]
                   [store (string? . -> . pict?)]
                   [pin-over-center (pict? real? real? pict? . -> . pict?)]
-                  [pin-over-vcenter (pict? real? real? pict? . -> . pict?)]
-                  [pin-over-hcenter (pict? real? real? pict? . -> . pict?)]
+                  [pin-over-vcenter (->* (pict? (or/c pict? real?) (or/c procedure? real?) pict?)
+                                         [#:x-translate real?]
+                                         pict?)]
+                  [pin-over-hcenter (->* (pict? (or/c pict? real?) (or/c procedure? real?) pict?)
+                                         [#:y-translate real?]
+                                         pict?)]
                   [stack (string? . -> . pict?)]
                   [clo (string? . -> . pict?)]
                   [val (string? . -> . pict?)]
@@ -178,7 +182,8 @@
   (define ph (pict-height pict))
   (define last #f)
   (define paths (find-tag* base tag))
-  (for/fold ([pict* base]) ([path (in-set (list->set paths))])
+  (for/fold ([pict* base]) ([path (in-set (list->set paths))]
+                            #:unless (and (pair? path) (is-ghost? (car path))))
     (define-values (dx dy) (lt-find pict* path))
     (define p (first path))
     (when (and last (equal? path last)) (error 'wat))
@@ -192,16 +197,24 @@
             (- dy (/ (pict-height pict) 2))
             pict))
 
-(define (pin-over-vcenter base dx dy pict)
+(define (pin-over-vcenter base dx dy pict #:x-translate [x-translate 0])
+  (define-values (x y)
+    (if (procedure? dy)
+        (dy base dx)
+        (values dx dy)))
   (pin-over base
-            dx
-            (- dy (/ (pict-height pict) 2))
+            (+ x x-translate)
+            (- y (/ (pict-height pict) 2))
             pict))
 
-(define (pin-over-hcenter base dx dy pict)
+(define (pin-over-hcenter base dx dy pict #:y-translate [y-translate 0])
+  (define-values (x y)
+    (if (procedure? dy)
+        (dy base dx)
+        (values dx dy)))
   (pin-over base
-            (- dx (/ (pict-width pict) 2))
-            dy
+            (- x (/ (pict-width pict) 2))
+            (+ y y-translate)
             pict))
 
 (define (both f) (f #f) (f #t))
