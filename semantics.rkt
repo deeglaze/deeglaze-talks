@@ -77,12 +77,12 @@
                  (tag-pict vE 'Efn) (tag-pict (fcons (nstruct "fn" @idtt{v} @idtt{ρ}) @ctt{κ}) 'fn))
            (list rc-superimpose lc-superimpose) cc-superimpose 100 5))
 
-  (define (changed stage p when)
+  (define (changed stage p when #:color [color "slateblue"])
     (define b (and (show-change?) (= stage when)))
     (define p* (inset p 2))
     (cc-superimpose
      (show (colorize (filled-rounded-rectangle (pict-width p*) (pict-height p*))
-            "slateblue")
+            color)
            b)
      (colorize-if b p* "white")))
   
@@ -140,7 +140,7 @@
      (define σ-problem? (= stage σ-big))
      (define e-problem? (= stage abscomp))
 
-     (define (changed* p when) (changed stage p when))
+     (define (changed* p when #:color [color "slateblue"]) (changed stage p when #:color color))
      (define (κ̂* fresh?) (κ̂ changed* AAM? fresh?))
      (define OR (with24 (text "or" null 20)))
      (define stepto (lt-superimpose (ghost OR) (with24 @tt{↦})))
@@ -399,7 +399,7 @@
                           call-where
                           (if M? call-ret (blank 0)))))
      (define a-fresh (hc-append a (with24 @t{ fresh})))
-     (define a-alloc (hc-append a (changed* (with24 @tt{ = alloc(ς)}) saCESK)))
+     (define a-alloc (hc-append a (changed* (with24 @tt{ = alloc(ς)}) saCESK #:color "firebrick")))
 
      (define side-condition
        (pict-cond

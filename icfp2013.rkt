@@ -58,6 +58,11 @@
 (define-runtime-path meat-path "super_meat_boy_by_mrcbleck-d5tsgeo_small.png")
 (define-runtime-path logo-path "prl-logo.png")
 (define-runtime-path redex-path "plt-redex.jpeg")
+(define-runtime-path tweak-path "tweak.png")
+(define-runtime-path map-path "map.png")
+(define-runtime-path fenway-path "fenway-small.png")
+(define-runtime-path grinder-tiny-path "grinder-tiny.png")
+(define-runtime-path vet-path "vet.png")
 
 (define-runtime-path aam-path "vanhorn2010abstract.pdf")
 (define-runtime-path speedup-path "all-relative-time.pdf")
@@ -90,6 +95,7 @@
              (scale (page->pict pdf-path) scale-factor)
              (page->pict pdf-path)))
          ;; dump rendering to png for later use.
+         #;
          (with-output-to-file png-path #:exists 'replace
            (λ () (write-bytes (convert (pict->bitmap pict) 'png-bytes))))
          pict]
@@ -416,7 +422,7 @@
                     OAAM-text ct-find OAAM-point cb-find
                     #:end-angle (/ pi 2))
     (blank 180)
-    @t{No change in evaluated precision})))
+    (colorize @t{No change in evaluated precision} "slategray"))))
 
 (define (drama stage)
   (define hipster "Aliqua put a bird on it pour-over DIY cupidatat Truffaut American Apparel paleo et sed Pariatur leggings photo booth beard Craft beer sed brunch eiusmod readymade Anim put a bird on it odio Cosby sweater Cupidatat raw denim placeat selvage bicycle rights gentrify Brooklyn dolor roof party Excepteur laborum fingerstache dreamcatcher artisan")
@@ -466,11 +472,6 @@
   (slide (cc-superimpose
           fake-match
           (show (shadow-frame (with-size 42 @t{Compile away dispatch overhead})) show?))))
-
-(define (boucher-feeley p)
-  (rt-superimpose
-   p
-   (shadow-frame (with-size 24 (colorize @t{[Boucher & Feeley CC 1996]} id-color)))))
 
 (define aam->oaam
   (let ()
@@ -773,7 +774,7 @@
                   (para #:align 'right (colorize @t{same ballpark, nosebleed seats} "firebrick")))
        (show (shadow-frame (with-size 60 (vl-append
                                           gap-size
-                                          (colorize @t{Slogan:} "medium forest green")
+                                          (colorize @t{Slogan:} "firebrick")
                                           (vc-append gap-size
                                                      @t{Engineering tricks}
                                                      @t{as semantics refactorings}))))
@@ -794,9 +795,12 @@
      (for ([i 3]) (slide (what-is-CESK i) #:title "Start with CESK machine"))
      (play (what-is-CESK 3) #:title "Start with CESK machine" #:steps 25 #:skip-first? #t)
      (slide ((what-is-CESK 3) 1) #:title "Start with CESK machine")
-     (slide (CESK-table sCESK))
-     (slide (CESK-table sCESK*))
-     (slide (CESK-table saCESK)))
+     (define psCESK (CESK-table sCESK))
+     (define psCESK* (CESK-table sCESK*))
+     (define psaCESK (CESK-table saCESK))
+     (play (λ (n) (fade-pict n psCESK psCESK*)) #:steps 40)
+     (play (λ (n) (fade-pict n psCESK* psaCESK)) #:steps 40)
+     (slide psaCESK))
 
     ;; AAM produces graphs
     (section outline
@@ -839,7 +843,7 @@
     (section abscomp
 
      (slide ((aam->oaam 5) 0) #:title (ghost aam-title)) ;; highlight comp
-     (slide (boucher-feeley (CESK-table abscomp))) ;; The problem
+     (slide (CESK-table abscomp)) ;; The problem
 
      (slide (with-size 26 (drama 0))) ;; Dispatch hell
      (both matches) ;; Dramatic dispatch
@@ -1009,16 +1013,33 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   (section evaluation
            (slide (with-size 72 @t{What does all this buy us?}))
-           (define graph (force bench-overview))
-           (define (eval stage)
-             (slide #:title "Factor speed-up over naive vs. paper section"
-                    (cc-superimpose graph
-                                    (show (shadow-frame
-                                           (vc-append
-                                            (colorize @t{Not shown: comparison with others} "firebrick")
-                                            (show (colorize @t{Fair evaluation is hard} "firebrick") (>= stage 2))))
-                                          (>= stage 1)))))
-           (for ([i 3]) (eval i))
+           (slide (with-size 72 (colorize @t{100000% improvement} "firebrick")))
+           (slide #:title "Factor speed-up over naive vs. paper section"
+                  (force bench-overview))
+
+           ;; Tweak and OAAM
+           (slide (pin-over
+                   (pin-over
+                    (pin-over (blank 1024 768)
+                              -20 -20 (cc-superimpose (filled-rectangle 1024 768) (bitmap fenway-path)))
+                    380 390
+                    (vc-append (bitmap tweak-path)
+                               (colorize (filled-rounded-rectangle-frame @t{Hand-optimized}) "firebrick")))
+                   160 125
+                   (vc-append (colorize (filled-rounded-rectangle-frame (with-size 40 @t{OAAM})) "darkgreen")
+                              (filled-rounded-rectangle-frame (bitmap grinder-tiny-path)))))
+
+           ;; AAM not in same ballpark
+           (define (aam-ballpark stadium?)
+             (slide
+              (pin-over
+               (pin-over
+                (blank 1024 768) -20 -20
+                (cc-superimpose (filled-rectangle 1024 768) (bitmap map-path))) 90 560
+                (show (vc-append (filled-rounded-rectangle-frame @t{AAM}) (bitmap vet-path)) stadium?))))
+           
+           (both aam-ballpark)
+
            #;#;
            (define pointer (hc-append 10
                                       (with-size 20 @t{Hand-optimized})
@@ -1036,11 +1057,14 @@
    
    (slide #:title (with-size 50 @t{Before we part})
           (with-size 42
-            (vc-append gap-size
-                       @t{Intuitive, simple, and competitive}
-                       @t{systematic methods for implementing analyses}))
+            (hc-append @t{Simple, systematic implementation}
+                       (bitmap grinder-tiny-path)))
           'next
-          (blank 70)
+          (blank 30)
+          (with-size 42 (hc-append (scale (bitmap meat-path) 0.3)
+                                   (colorize @t{1000x speedup} "midnight blue")))
+          'next
+          (blank 30)
           (with-size 42
             (vc-append gap-size
                        (colorize @t{"A simple matter of engineering?"} "firebrick")
@@ -1050,7 +1074,7 @@
           (with-size 72 (colorize @t{Thank you} "dark slate blue")))))
 
 (module+ main
- (define dummy (run-talk '(wrapup) #;
+ (define dummy (run-talk #;
                 (append
                  
                  '(intro                ;; Good
