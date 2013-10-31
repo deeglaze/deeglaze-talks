@@ -1,0 +1,431 @@
+
+\documentclass[10pt]{beamer}
+
+\usepackage{beamerthemesplit}
+\usepackage{amsmath}
+\usepackage{amssymb,mathpartir}
+\usepackage{amsthm,listings,cite}
+\usepackage{graphicx,multirow}
+%\usepackage[latin1]{inputenc}
+
+\useoutertheme{infolines}
+
+\title{How to Write a Trustworthy Theorem Prover}
+\subtitle{A Discussion of Jared Davis' Thesis Work on Milawa}
+
+\author{Ian Johnson}
+
+\date{April 14th, 2010}
+
+\definecolor{blue}{rgb}{0,0,1.0}
+\newcommand{\blue}[1]{{\color{blue}#1}}
+\definecolor{green}{rgb}{0,1.0,0}
+\newcommand{\green}[1]{{\color{green}#1}}
+\definecolor{red}{rgb}{1.0,0,0}
+\newcommand{\red}[1]{{\color{red}#1}}
+\definecolor{grey}{rgb}{0.6,0.6,0.6}
+\newcommand{\grey}[1]{{\color{grey}#1}}
+
+\AtBeginSection[]
+{
+\begin{frame}<beamer>
+  \frametitle{Outline}
+  \tableofcontents[currentsection]
+\end{frame}
+}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\frame{
+\frametitle{Outline}
+\tableofcontents
+}
+
+\section{Introduction}
+
+\frame{
+\frametitle{Why Prove Theorems?}
+\begin{itemize}
+ \item We depend on computers.
+ \item Our lives are staked on certain systems not failing. \\
+\begin{center}
+ \includegraphics[scale=0.20]{airplane_in_flight.jpg} 
+\end{center}
+ \item Just trusting smart people for correctness is not the best idea.
+\pause
+ \item Solution: Math.
+\end{itemize}
+}
+
+\frame{
+\frametitle{Theorem Provers Today}
+
+\begin{itemize}
+ \item Many theorem provers exist, all depend on trust.
+ \item How much trust depends on the theorem prover, but in the case of ACL2, one must be very trusting.
+\pause
+ \item Stanford LCF was created to address the issue of trust.
+\pause
+ \item How do we get the speed of ACL2 with the LCF philosophy?
+\end{itemize}
+}
+
+\frame{
+\frametitle{Milawa: A Reflective Proof Checker}
+
+\centering{\includegraphics[scale=0.15]{logo-with-title.png}}
+\begin{itemize}
+ \item Milawa is an attempt to prove an ACL2-like system correct.
+ \item It differs from LCF in that it is first order and is extensible.
+\pause
+ \item Once proven, extensions do not need to build proofs.
+\end{itemize}
+}
+
+\section{Defining Proof Succinctly}
+
+\frame{
+\frametitle{Math as Humans Do It}
+
+\begin{itemize}
+ \item Milawa, ACL2, HOL and others use term rewriting. \\
+\pause
+e.g. Given an axiom 
+\begin{equation*}
+x \vee \neg x
+\end{equation*}
+and a theorem 
+\begin{equation*}
+f(g(x)) = x
+\end{equation*}
+we create a rewrite rules \\
+\begin{center}
+\texttt{(or x (not x))} $\rightarrow$ \texttt{True} \\
+\texttt{(f (g x))} $\rightarrow$ \texttt{x}
+\end{center} 
+\pause
+ So in our rewrite system, \\
+ \texttt{(or (= (f (g x)) y) (not (= x y)))} rewrites to \\
+ \texttt{(or (= x y) (not (= x y)))} and then to \texttt{True}.
+\end{itemize}
+}
+
+\frame{
+\frametitle{Proof is Justification}
+\begin{itemize}
+ \item A proof is a list of steps that rewrite a formula to True.
+ \item A step consists of a method, a conclusion, subproofs and extras.
+ \item The core of Milawa has very few methods and are hand-checkable.
+\end{itemize}
+}
+
+\frame{
+\frametitle{Rules of inference, some axioms}
+\begin{columns}[2]
+  \column{.4\textwidth}
+  \renewcommand{\arraystretch}{2}
+  \begin{tabular}{p{2.2cm} l}
+    Propositional Schema & \scriptsize{$\inferrule{ }{\neg A \vee A}
+      $}\\
+    Contraction & \scriptsize{$\inferrule{A \vee A}{A}$} \\
+    Expansion & \scriptsize{$\inferrule{A}{B \vee A}$} \\
+    Associativity & \scriptsize{$\inferrule{A \vee (B \vee C)}{(A \vee B) \vee C}$}
+    \\
+    Cut & \scriptsize{$\inferrule{A \vee B \\ \neg A \vee C}{B \vee C}$} \\
+    Instantiation & \scriptsize{$\inferrule{A}{A/\sigma}$} \\
+    Induction & ...
+  \end{tabular}
+
+  \column{.55\textwidth}
+    Reflexivity Axiom \\
+      \quad {\scriptsize $x = x$} \\
+    \hspace*{\fill} \\
+    Equality Axiom \\
+      \quad {\scriptsize $x_1 = y_1 \rightarrow x_2 = y_2 \rightarrow x_1
+    = x_2 \rightarrow y_1 = y_2$} \\
+    \hspace*{\fill} \\
+    Referential Transparency \\
+      \quad {\scriptsize $x_1 = y_1 \rightarrow ... \rightarrow
+    x_n = y_n \rightarrow f(x_1,...,x_n) = f(y_1, ..., y_n)$} \\
+    \hspace*{\fill} \\
+    Beta Reduction \\
+      \quad {\scriptsize $((\lambda x_1 ... x_n . \beta) t_1 ... t_n) =
+    \beta / \left[x_1 \leftarrow t_1, ..., x_n \leftarrow t_n
+    \right]$} \\
+    \hspace*{\fill} \\
+    Base Evaluation \\
+      \quad {\scriptsize e.g. $1 + 2 = 3$} \\
+    \hspace*{\fill} \\
+    Lisp Axioms \\ 
+      \quad {\scriptsize e.g. \texttt{(consp (cons x y)) = t}}
+\end{columns}
+}
+
+\frame{
+\frametitle{Huge Proofs}
+
+\begin{itemize}
+ \item Using only the core just shown results in ridiculously large proofs of trivial theorems.
+ \item One reason for this is the inherent use of sharing in proofs.
+\pause
+ \item This only checks proofs - it does not find them.
+\pause
+ \item What does a good theorem prover need to be usable?
+\end{itemize}
+}
+
+\section{Necessary Gadgetry}
+
+\begin{frame}[fragile]
+\frametitle{Backchaining Problems}
+\begin{itemize}
+ \item Theorem proving without hypotheses is a drag.
+ \item To apply a rule with hypotheses, you must prove the hypotheses hold.
+\pause
+ \item Problem rules when rewriting \texttt{(consp a)}: \\
+{\scriptsize\begin{lstlisting}
+(implies (consp (cdr x))
+         (equal (consp x) t)) 
+\end{lstlisting}}
+\pause
+Two rules that combine nastily:
+\pause
+{\scriptsize\begin{lstlisting}
+(implies (true-listp x) 
+         (equal (consp x) (if x t nil))) 
+
+(implies (not (consp x))
+         (equal (true-listp x) (not x)))
+\end{lstlisting}}
+\end{itemize}
+\end{frame}
+
+\frame{
+\frametitle{Ancestors Checking}
+\begin{itemize}
+ \item A basic but successful approach is to maintain an \emph{ancestors stack}.
+ \item Every backchain adds a frame that records
+  \begin{itemize}
+   \item term to relieve
+   \item rule that caused the backchain
+   \item Guts of the term
+   \item Number of function occurrences.
+  \end{itemize}
+\pause
+ \item Before backchaining, compare new hypothesis to stack and prohibit if:
+  \begin{itemize}
+    \item Exact term or its guts exists on stack as term to relieve
+    \item New term looks ``worse'' than all others caused by the rule \textbf{and} guts of term and frame terms are application of the same function.
+  \end{itemize}
+\end{itemize}
+
+}
+
+\begin{frame}[fragile]
+\frametitle{Free Variable Matching}
+\begin{itemize}
+ \item  Many rules such as transitivity results have terms in the hypotheses that do not appear in the conclusion. \\
+{\scriptsize\begin{lstlisting}
+ (implies (and (subsetp x y)
+               (subsetp y z))
+          (subsetp x z))
+\end{lstlisting}}
+ \item To allow the rule to be applied, the hypotheses must be discharged, but how?
+\pause
+ \item Using the substitution from matching \texttt{(subsetp a c)} we end up having to prove \texttt{(subsetp a y)} and \texttt{(subsetp y c)} which will fail. 
+\pause
+ \item How do we choose y?
+\end{itemize}
+\end{frame}
+
+\frame{
+\frametitle{Free Variable Matching}
+\begin{itemize}
+ \item For each free variable $v$, mark the first hypothesis to mention it.
+ \item Try all bindings which can be sure to satisfy all marked hypotheses.
+ \item Rewriter will produce a trace or say the rule cannot be applied.
+ \item Recursively try to relieve hypotheses (backchain).
+\end{itemize}
+}
+
+\frame{
+\frametitle{Syntactic Restrictions}
+\begin{itemize}
+ \item Associativity and commutativity rules are everywhere.
+ \item Systems like Maude and Coq treat these specially.
+ \item ACL2 and Milawa: permutative rules only apply if conclusion is ``smaller.''
+\pause
+ \item Can also restrict rules to syntax patterns. e.g. left associative constant folding with right associative normalizing rules.
+\pause
+ \item Implement by constructing ground substitutions (quote terms) and applying to restrictions. Must evaluate to non-nil.
+\end{itemize}
+
+}
+
+\frame{
+\frametitle{Rewriter Caching}
+\begin{itemize}
+ \item Many terms are repeated during proofs.
+ \item Rewriting them each time is not desirable.
+ \item Use fast association lists to memoize.
+\pause
+ \item Maintaining the soundness proof means caches should be constructable with a fixed set of assumptions.
+ \item This means using fresh caches when rewriting \texttt{if} branches.
+\pause
+ \item Ignore rewrite limit in memoization.
+ \item Do not ignore backchain limit (fail to relieve \texttt{(consp x)} with low backchain limit?)
+\end{itemize}
+}
+
+\frame{
+\frametitle{Rewriting Clauses}
+\begin{itemize}
+ \item Milawa works on formulas in CNF.
+ \item To rewrite clauses, force assumptions that all other terms are false.
+ \item Prove in steps by rewriting each term with the goal of $Todo \cup Done$
+ \item If any rewrite to \texttt{True}, the ``obvious term'' rule will rewrite the entire clause to \texttt{True}.
+\end{itemize}
+
+}
+
+\section{Building a Sound Theorem Prover}
+
+\begin{frame}[fragile]
+\frametitle{Gadget Glue}
+\begin{itemize}
+ \item The key to proving all these gizmos sound is to do so in stages. 
+ \item Milawa has an extra 10 layers on top of its core.
+ \item Each layer admits hundreds to thousands of theorems.
+ \item Some proofs get up to the order of Gigaconses.
+\pause
+ \item New justification steps are written in a proof building function.
+\pause
+ \item For lemmas, LISP Macros make proofs look very nice.
+{\tiny
+\begin{lstlisting}
+ (defderiv clause.aux-split-twiddle-lemma-1
+  :derive (v (v (v B C) (v A (v B C))) A)
+  :from   ((proof x (v (v A C) (v B C))))
+  :proof  (@derive
+           ((v (v A C) (v B C))               (@given x))
+           ((v (v B C) (v A C))               (build.commute-or @-))
+           ((v A (v (v B C) (v A C)))         (build.expansion (@formula A) @-))
+           ((v (v A (v B C)) (v A C))         (build.associativity @-))
+           ((v (v (v A (v B C)) A) C)         (build.associativity @-))
+           ((v C (v (v A (v B C)) A))         (build.commute-or @-))
+           ((v B (v C (v (v A (v B C)) A)))   (build.expansion (@formula B) @-))
+           ((v (v B C) (v (v A (v B C)) A))   (build.associativity @-))
+           ((v (v (v B C) (v A (v B C))) A)   (build.associativity @-))))
+\end{lstlisting}}
+\end{itemize}
+\end{frame}
+
+\frame{
+\frametitle{The Layers of Milawa}
+\begin{description}
+ \item[Layer 1] Core
+ \item[Layer 2] Associativity of $\vee$, Modus ponens, clausifier.
+ \item[Layer 3] Modus ponens list, generic subset
+ \item[Layer 4] Groundwork. Obvious term elimination, substitute iff into literal, etc.
+ \item[Layer 5] Equivalence traces, updating clauses
+ \item[Layer 6] Factoring and splitting
+ \item[Layer 7] Split tactics
+ \item[Layer 8] Rewrite traces
+ \item[Layer 9] Unconditional Rewriting, worlds
+ \item[Layer 10] Conditional Rewriting, hypboxes
+ \item[Layer 11] Tactics
+\end{description}
+
+}
+
+\frame{
+\frametitle{A Little Bit on Tactics}
+\begin{itemize}
+ \item Like LCF-style systems, a tactic is the pair of functions that apply and justify the tactic.
+\pause
+ \item First order $\Rightarrow$ cannot compose tactics dynamically. 
+  \begin{itemize}
+   \item Remember which tactics have been applied.
+   \item Pass along non-proof information from tactics.
+  \end{itemize}
+\pause
+ \item Tactics are implemented by creating ``proof skeletons'' that imply proof. These consist of:
+ \begin{itemize}
+  \item \emph{Goals} - list of clauses left to prove.
+  \item \emph{Tacname} - name of the tactic used to produce above goals 
+  \item \emph{Extras} - information the justifier may need.
+  \item \emph{History} - the proof skeleton this to which tactic was applied.
+ \end{itemize}
+\end{itemize}
+}
+
+\frame{
+\frametitle{Fleshing Out Proof Skeletons}
+\begin{itemize}
+ \item The justification function (verifier) constructs a proof from
+ \begin{itemize}
+  \item The skeleton produced by the tactic, $s$.
+  \item Proofs of $s.Goals$
+ \end{itemize}
+ \item The proof it produces is a proof of $s.History.Goals$, recursively constructed, assuming $s.Goals$.
+ \item Note: final skeleton has an empty goal clause.
+\end{itemize}
+}
+
+\begin{frame}[fragile]
+\frametitle{A sample tactic (case splitting)}
+{\scriptsize
+\begin{lstlisting}
+(pequal* 
+  (tactic.split-all-tac liftp llimit slimit skelly)
+    (let ((goals (tactic.skeleton->goals skelly)))
+      (if (not (consp goals))
+          ;; fail: no clauses to prove
+          nil
+        (let* ((split
+                 (clause.split-list liftp llimit
+                                    slimit goals))
+               (split-lens (strip-lens (cdr split)))
+               (new-goals (simple-flatten (cdr split))))
+             (if (not (car split))
+                 ;; fail: no progress was made
+                 nil
+               (tactic.extend-skeleton new-goals
+                                       'split-all
+                                       (list liftp llimit slimit
+                                             split-lens)
+                                       skelly))))))
+\end{lstlisting}
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{A sample tactic (case splitting) verifier}
+{\scriptsize
+\begin{lstlisting}
+(pequal* 
+  (tactic.split-all-compile x proofs)
+  (let* ((history (tactic.skeleton->history x))
+         (orig-goals (tactic.skeleton->goals history))
+         (extras (tactic.skeleton->extras x))
+         (liftp (first extras))
+         (llimit (second extras))
+         (slimit (third extras))
+         (lens (fourth extras))
+         (part-proofs (partition lens proofs)))
+      (clause.split-list-bldr liftp llimit slimit
+                              orig-goals part-proofs)))
+\end{lstlisting}
+}
+\end{frame}
+
+\frame{
+\frametitle{Questions?}
+Thank you.
+}
+
+\end{document}
+
+
