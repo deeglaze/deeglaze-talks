@@ -1,0 +1,50 @@
+
+Boyer-Moore
+  Common lisp theorem prover
+  NQTHM
+  ACL2
+
+--Otter, Prover9, Milawa
+
+What is it take to be in the family?
+
+  First order
+  Use extensive rewrite rules
+  Prove by induction, with schemes suggested from the program structure
+    (a computational logic).
+
+An example prover, Milawa
+
+  The "logic" is determined by the base set of axioms about the
+  language semantics and some primitive functions.
+  Subset of the ACL2 logic
+  
+  --Example axioms
+    (pequal* (car (cons x y)) x)
+
+    (por* (pequal* (natp a) 'nil)
+          (por* (pequal* (natp b) 'nil)
+                (por* (pequal* (< a b) 't)
+                      (por* (pequal* (< b a) 't)
+                            (pequal* a b)))))
+
+Induction
+  Rules
+   Basis
+   Inductive
+   Ordinal
+   Progress (Measure)
+
+Extending the logic
+
+  Events
+  Soundness of history
+  Function must have its freevars as a subset of its formals
+  Measure must also have its freevars as a subset of the formals
+  Measure must be an ordinal
+  Measure must make progress
+
+  Pass -> Add definitional axiom (pequal* (f x_1 x_2 ... x_n) body)
+
+
+  
