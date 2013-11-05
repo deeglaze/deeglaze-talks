@@ -169,6 +169,7 @@
   (define (anim-fn n)
     (with-size 16
      (define superβ @t{(Super-beta) inlining})
+     (define constant-prop @t{Constant propagation & folding})
      (define safety @t{Safety test removal})
      (define global @t{Globalization})
      (define arity @t{Arity-raising})
@@ -181,7 +182,8 @@
      (define strict @t{Strictness promotion})
      (define lazy @t{Laziness refactoring})
      (define strength @t{Strength reduction})
-     (define opts (vector superβ safety global arity unbox future uve ive vect fusion strict lazy strength))
+     (define opts (vector superβ constant-prop
+                          safety global arity unbox future uve ive vect fusion strict lazy strength))
      (define opt-base
        (vl-append (with-size big-font (colorize @t{Optimizations} "firebrick"))
                   (shadow-frame (ghost (vlappend-vec opts)))))
@@ -216,7 +218,7 @@
                   (scale2 n))))))
   
   (match stage
-    [(== base) base-pict]
+    [(== base) (cc-superimpose base-pict (ghost (anim-fn 0.0)))]
     [(== anim) anim-fn]
     [(== to-name-a-few)
      (cc-superimpose (anim-fn 1.0) 
@@ -227,37 +229,12 @@
 (slide (big @t{Why care about HOPA?}))
 (run-stages tail-jail)
 (run-stages universal)
+(slide (big @t{HOPA is a class of})
+       @item{online,}
+       @item{computable,}
+       @item{abstract interpretations,}
+       @item{of higher-order languages})
 (run-stages useful)
-
-
-;; TODO
-#| Example clients
-Optimization:
- - future optimization
- - (super-β) inlining
- - safety test removal (types, vector accesses, nullability)
- - globalization
- - arity-raising
- - useless variable elimination
- - unboxing
- - loop fusion 
- - vectorization
- - induction variable elimination
- - strictness promotion
- - strength reduction (call/cc → abort)
-Program understanding:
- - data race detection
- - information flow for security
- - laziness analysis
- - termination analysis
- - complexity analysis
- - dependence analysis
- - type inference
- - shape analysis
-Verification:
- - temporal logic model-checking
- - behavioral contract validity
-|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; What's wrong with HOPA?
@@ -280,21 +257,181 @@ Verification:
 
 (slide (big (t "What's wrong with HOPA?")))
 (slide #:title "Intrinsically"
-       (vc-append @t{Soundness}
+       (vc-append (blank 100)
+                  @t{Soundness}
                   (hc-append @t{Speed} (blank 400) @t{Precision})))
 (slide #:title "Extrinsically"
-       (vc-append @t{Maintainability}
+       (vc-append (blank 100)
+                  @t{Maintainability}
                   (hc-append @t{Designability} (blank 400) @t{Grokability})))
 (run-stages temporal)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; What have I done for HOPA?
 
-(slide (big (t "What have I done for HOPA?")))
-(slide @item{Systematic optimizations}
-       @item{Systematic summarization}
-       @item{Abstract model of stack introspection}
-       @item{Concrete summarization of introspection}
-       @item{Temporal reasoning through contracts})
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Definitions
+;; XXX: straight from texpict/private/common-unit.rkt
+(define default-seg 5)
+(define (quotient* a b)
+	(if (integer? a)
+	    (quotient a b)
+	    (/ a b)))
+(define (rlist b a) (list a b))
+(define (dash-line width height rotate seg)
+  (let ([vpos (quotient* height 2)])
+    (make-pict
+     `(picture
+       ,@(rotate width height)
+       ,@(if (>= seg width)
+             `((put ,@(rotate 0 vpos) (line ,@(rotate 1 0) ,width)))
+             (let* ([remain (+ (- width (floor width))
+                               (remainder (floor width) (* 2 seg)))]
+                    [count (inexact->exact (floor (quotient* width (* 2 seg))))]
+                    [lremain (quotient* remain 2)]
+                    [rremain (- remain lremain)])
+               `((put ,@(rotate 0 vpos) (line ,@(rotate 1 0) ,lremain))
+                 ,@(let loop ([count count][pos lremain])
+                     (if (zero? count)
+                         null
+                         (cons `(put ,@(rotate (+ pos seg) vpos) 
+                                     (line ,@(rotate 1 0) ,seg))
+                               (loop (sub1 count) (+ pos seg seg)))))
+                 (put ,@(rotate (- width rremain) vpos) 
+                      (line ,@(rotate 1 0) ,rremain))))))
+     (car (rotate width height))
+     (cadr (rotate width height))
+     (cadr (rotate 0 height)) 0
+     null
+     #f
+     #f)))
+(define dash-hline
+  (case-lambda 
+    [(width height) (dash-hline width height default-seg)]
+    [(width height seg) (dash-line width height list seg)]))
 
-(slide (big (t "What do I propose to do for HOPA?")))
+(define dash-vline
+  (case-lambda 
+    [(width height) (dash-vline width height default-seg)]
+    [(width height seg) (dash-line height width rlist seg)]))
+(define (extend-pict box dx dy dw da dd draw)
+	(let ([w (pict-width box)]
+	      [h (pict-height box)]
+	      [d (pict-descent box)]
+	      [a (pict-ascent box)])
+	  (make-pict (if draw draw (pict-draw box))
+		     (+ w dw) (+ h da dd) 
+		     (max 0 (+ a da)) (max 0 (+ d dd))
+		     (list (make-child box dx dy 1 1 0 0))
+		     #f
+                     (pict-last box))))
+;; Well that was disgusting.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (frame-without-bottom box)
+  (define w (pict-width box))
+  (define h (pict-height box))
+  (define seg (max w h))
+  (extend-pict
+   box 0 0 0 0 0
+   `(picture
+     ,w ,h
+     (put 0 0 ,(pict-draw box))
+     ;;(put 0 0 ,(pict-draw (dash-hline w 0 seg)))
+     (put 0 ,h ,(pict-draw (dash-hline w 0 seg)))
+     (put 0 0 ,(pict-draw (dash-vline 0 h seg)))
+     (put ,w 0 ,(pict-draw (dash-vline 0 h seg))))))
+
+(define/staged (what-I-did stage) #:stages [all focus slogan slogan-zoom]
+  ;; Put "slogan" in a frame without a bottom so we can make it look like
+  ;; it's part of the shadow frame containing the slogan
+  (define frame-margin 20)
+  (define frame-sep 5)
+  (define slogan-pict
+    (inset (shadow (big (colorize @t{Slogan} "steel blue")) 10 5) 10))
+  (define white-bg
+    (cc-superimpose
+     (colorize (filled-rectangle (pict-width slogan-pict) (pict-height slogan-pict)) "white")
+     slogan-pict))
+  (define slogan-frame
+    (cc-superimpose white-bg
+                    (colorize (frame-without-bottom (ghost white-bg)) "gray")))
+  (define the-slogan
+    (shadow-frame (hc-append
+                   (t "Summarization is ")
+                   (tag-pict (colorize-if (>= stage slogan-zoom) (t "context-sensitive") "medium forest green") 'context)
+                   (t " memoization"))
+                  #:margin frame-margin
+                  #:sep frame-sep))
+  (define some-contexts
+    (vl-append @t{Heap}
+               @t{Stack root addresses}
+               @t{Continuation marks}
+               @t{Temporal monitor state}))
+  (define framed-contexts (shadow-frame some-contexts))
+  (cc-superimpose
+   (vl-append
+    gap-size
+    (colorize @t{Done:} (if (= stage all) "medium forest green" "gray"))
+    (colorize-if (>= stage focus)
+                 @item[@t{Systematic optimizations } (colorize @t{[ICFP 2013]} "gray")]
+                 "lightgray")
+    (colorize @t{Almost done:} (if (= stage all) "steel blue" "gray"))
+    @item[@t{Systematic summarization } (colorize @t{[HOPA 2013]} "gray")]
+    ;; Not going to talk about 1NSAs
+    (colorize-if (>= stage focus)
+                 @item[@t{Abstract model of stack introspection } (colorize @t{[JFP best of ICFP 2012]} "gray")]
+                 "lightgray")
+    (colorize @t{Needs work:} (if (= stage all) "firebrick" "gray"))
+    @item{Temporal reasoning through contracts})
+   (show (pin-arrow-line
+          15
+          (pin-over
+           (pin-over
+            the-slogan
+            (sub1 (+ frame-sep frame-margin))
+            (+ (- (pict-height slogan-frame)) frame-margin 1) slogan-frame)
+           -100 -300
+           (show framed-contexts (>= stage slogan-zoom)))
+          framed-contexts
+          ;; get at the bottom-right of the frame and not the drop-shadow
+          (λ (pict path)
+             (define-values (x y) (lt-find pict path))
+             (values (+ x frame-sep (* 3 frame-margin) (pict-width some-contexts))
+                     (+ y (* 3 frame-margin) (pict-height some-contexts))))
+          (find-tag the-slogan 'context)
+          ct-find
+          #:alpha (if (>= stage slogan-zoom) 1 0)
+          #:hide-arrowhead? (not (>= stage slogan-zoom))
+          #:start-angle 0
+          #:end-angle (* -1/2 pi))
+         (>= stage slogan))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Slides
+
+(slide (big (t "What have I done for HOPA?")))
+(run-stages what-I-did)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; When do I propose to do all this crap?
+(slide (big @t{When will this happen?})
+       (table 3
+              (append
+               (list @bt{Project} @bt{Date range} @bt{Time})
+               (with-size 18
+                 (list
+                  @t{Summarization} @t{Proposal - Feb 15} @t{~1.5 mo. (1 mo. paternity leave)}
+                  @t{Temporal contracts} @t{Feb 15 - Apr 15} @t{2 mo.}
+                  @t{Stack inspection} @t{Proposal - Apr 15} @t{parallel}
+                  @t{Writing} @t{Apr 15 - Aug 15} @t{4 mo.}))
+               (list @bt{Total} (blank) @bt{7 mo.}))
+              lc-superimpose
+              cc-superimpose
+              gap-size
+              gap-size)
+       (blank 10)
+       (small @t{Committee reads for a while})
+       (blank 30)
+       @t{Defend in September 2014})
