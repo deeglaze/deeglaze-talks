@@ -8,7 +8,8 @@
          racket/gui/base
          scheme/runtime-path
          slideshow/balloon slideshow/face
-         "pict-helpers.rkt"
+         (except-in "pict-helpers.rkt" addr)
+         "color-scheme.rkt"
          (submod "hammer-slide.rkt" slide-deck)
          (submod "proof-diagram.rkt" slide-deck)
          (submod "call-ret.rkt" slide-deck))
@@ -16,7 +17,9 @@
 (define (naive arrows?)  
   (slide #:title "Naive doesn't cut it"
          (if arrows?
-        (define kappa "\u03ba")
+             (arrows-back-and-forth store-pict (find-tag store-pict 'first) (find-tag store-pict 'second))
+             store-pict)))
+(define kappa "\u03ba")
 (define abscont (abstt kappa))
 
 (define (arrows-back-and-forth base left right)
@@ -57,8 +60,7 @@
                              (find-tag base-pict 'second) cb-find
                              (find-tag base-pict 'fix) ct-find
                              #:line-width 10)
-             base-pict)))     (arrows-back-and-forth store-pict (find-tag store-pict 'first) (find-tag store-pict 'second))
-             store-pict)))
+             base-pict)))
 
 
 

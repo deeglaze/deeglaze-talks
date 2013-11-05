@@ -32,7 +32,6 @@ Second part of the conversation: concrete makes this easy [demo?]
 |#
 
 ;; Should be in sync with texpict/code (used by pict/code)
-(define comma @tt{, })
 (paren-color "brown")
 
 (define bg-slide-assembler
@@ -48,7 +47,7 @@ Second part of the conversation: concrete makes this easy [demo?]
   (parameterize ([current-font-size 28])
     (code e ...)))
 
-(define-runtime-path logo-path "prl-logo.png")
+(define-runtime-path logo-path "../utils/prl-logo.png")
 (define-runtime-path pdcfa-path "pdcfafig-small.png")
 (define-runtime-path pdcfa-path2 "sprout.png")
 (define-runtime-path pdcfa-path3 "addpush.png")

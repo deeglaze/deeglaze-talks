@@ -1,7 +1,7 @@
 #lang setup/infotab
 (define name "ianj-talks")
 (define version "1.0")
-(define deps '("base" "slideshow-lib"))
+(define deps '("base" "slideshow-lib" "slideshow-helpers"))
 (define setup-collects (list "boyer-moore"
                              "hopa2013"
                              "icfp2013"

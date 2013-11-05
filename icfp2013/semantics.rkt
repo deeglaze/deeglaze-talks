@@ -2,6 +2,7 @@
 (require unstable/gui/slideshow
          unstable/gui/ppict
          slideshow/play
+         slideshow-helpers/picts
          unstable/gui/pict
          racket/gui/base
          slideshow/code

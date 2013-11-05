@@ -5,9 +5,9 @@
          slideshow/base
          unstable/gui/slideshow
          racket/draw
+         slideshow-helpers/picts
          (except-in "color-scheme.rkt" addr))
-(provide filled-rounded-rectangle-frame
-         filled-flash-frame
+(provide (all-from-out slideshow-helpers/picts)
          subscript-right
          paren-color
          supscript-right
@@ -18,12 +18,10 @@
          ntuple nstruct
          pin-under-all mk-center
          ⟼ 
+         comma
          use-store use-env use-map
          production
-         where-clause
-         pin-over-tag
-         pin-under-tag
-         progressive-table)
+         where-clause)
 ;; different constructors for coloring stuff
 (provide/contract [memo (string? . -> . pict?)]
                   [edge (string? . -> . pict?)]
@@ -38,7 +36,6 @@
                   [ibrack (string? . -> . pict?)]
                   [angled (string? . -> . pict?)]
                   [ghost-commas ((listof (or/c pict? #f)) . -> . (listof pict?))]
-                  [both ((boolean? . -> . void?) . -> . void?)]
                   [state (->* () #:rest (listof pict?) pict?)]
                   [angles (->* () #:rest (listof pict?) pict?)]
                   [parens (->* () #:rest (listof pict?) pict?)]
@@ -58,25 +55,6 @@
                   [grn color/c]
                   [constructor (->* (string?) #:rest (listof pict?) pict?)])
 
-(define (both f) (f #f) (f #t))
-
-(define (mk-center x y base top)
-  (values (+ x (/ (pict-width base) 2)
-             (- (/ (pict-width top) 2)))
-          (+ y (/ (pict-height base) 2) (- (/ (pict-height top) 2)))))
-
-(define (pin-under-all base tag pict)
-  (define pw (pict-width pict))
-  (define ph (pict-height pict))
-  (define last #f)
-  (define paths (find-tag* base tag))
-  (for/fold ([pict* base]) ([path (in-set (list->set paths))])
-    (define-values (dx dy) (lt-find pict* path))
-    (define p (first path))
-    (when (and last (equal? path last)) (error 'wat))
-    (set! last path)
-    (define-values (dx* dy*) (mk-center dx dy p pict))
-    (pin-under pict* dx* dy* pict)))
 
 (define comma (tt ","))
 (define (is-ghost? pict)
@@ -115,46 +93,6 @@
 (define (join-one m a v) (hc-append m (tt "⊔") (brackets a (tt " ↦ ") v)))
 
 (define grn (make-object color% #x10 #xBB #x10))
-
-(define (filled-rounded-rectangle-frame pict 
-                                        #:bgcolor [bgcolor #f]
-                                        #:corner-radius [corner-radius -0.25]
-                                        #:angle [angle 0]
-                                        #:draw-border? [draw-border? #t]
-                                        #:border-color [border-color #f])
-  (define rect
-    (filled-rounded-rectangle (pict-width pict) (pict-height pict)
-                             corner-radius
-                             #:angle angle
-                             #:draw-border? draw-border?))
-  (cc-superimpose 
-   (if bgcolor
-       (colorize rect bgcolor)
-       rect)
-   pict))
-
-(define (filled-flash-frame pict 
-                            #:scale [scale 3/2]
-                            #:bgcolor [bgcolor #f]
-                            #:outline [outline #f]
-                            #:n-points [n-points 10]
-                            #:spike-fraction [spike-fraction 0.25]
-                            #:rotation [rotation 0])
-  (define flash
-    (filled-flash (* scale (pict-width pict)) (* scale (pict-height pict))
-                  n-points spike-fraction rotation))
-  (define colored
-    (if bgcolor
-       (colorize flash bgcolor)
-       flash))
-  (cc-superimpose 
-   (if outline
-       (colorize (outline-flash (* scale (pict-width pict)) (* scale (pict-height pict))
-                                n-points spike-fraction rotation)
-                 outline)
-       (blank))
-   colored
-   pict))
 
 (define (surround d left right picts)
   (apply hc-append d left (append picts (list right))))
@@ -241,40 +179,11 @@
 (define (state . args) (apply angled (list-join args (it ","))))
 (define (tuple . args) (apply parens (list-join args (it ",")))) 
 
-;; n stage : natural
-;; stages: monotonically non-decreasing list of naturals
-;; lst: list
-(define (play-n-at n stage stages lst ghost?)
-  (let loop ([stages stages] [lst lst])
-    (cond [(empty? stages)
-           (if ghost?
-               (map ghost lst)
-               '())]
-          [(<= (first stages) stage)
-           (define-values (to-show the-rest) (split-at lst n))
-           (append to-show (loop (rest stages) the-rest))]
-          [else (loop (rest stages) lst)])))
-;; Given the current stage and the "rollout" stages, show the rows
-;; up to the current stage.
-;; there should be as many stages as there are rows.
-(define (progressive-table stage stages ncols picts col-aligns row-aligns col-seps row-seps
-                           #:ghost? [ghost? #t])
-  (cond [(or (zero? ncols) (empty? stages) (empty? picts)) (blank)]
-        [else
-         (define rows (/ (length picts) (length stages)))
-         (define prog-picts (play-n-at rows stage stages picts ghost?))
-         (cond [(empty? prog-picts) (blank)]
-               [else (table ncols prog-picts col-aligns row-aligns col-seps row-seps)])]))
-
 (define (pin-at-tag pin base finder tag pict-fn)
   (define path (find-tag base tag))
   (define-values (x y) (finder base path))
   (pin-under base x y (pict-fn (last path))))
 
-(define (pin-under-tag base finder tag pict-fn) 
-  (pin-at-tag pin-under base finder tag pict-fn))
-(define (pin-over-tag base finder tag pict-fn) 
-  (pin-at-tag pin-over base finder tag pict-fn))
 
 (define (encircle-tagged whole #:color [color grn] #:border-width [border-width 4] . tags)
   (define (encircle tagged)

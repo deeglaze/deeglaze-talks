@@ -2,7 +2,8 @@
 
 (require unstable/gui/slideshow
          rsvg
-         "poppler-main.rkt"
+         slideshow-helpers/picts
+         "../utils/poppler-main.rkt"
          file/convertible
          unstable/gui/ppict
          net/sendurl
@@ -12,6 +13,7 @@
          racket/gui/base
          scheme/runtime-path
          slideshow/balloon slideshow/face
+         
          (rename-in "pict-helpers.rkt" [addr paddr])
          "color-scheme.rkt"
          (submod "semantics.rkt" slide-deck))
@@ -56,7 +58,7 @@
 (define-runtime-path grinder-small-path "grinder_small.png")
 (define-runtime-path grinderp-path "grinder-transparent_small.png")
 (define-runtime-path meat-path "super_meat_boy_by_mrcbleck-d5tsgeo_small.png")
-(define-runtime-path logo-path "prl-logo.png")
+(define-runtime-path logo-path "../utils/prl-logo.png")
 (define-runtime-path redex-path "plt-redex.jpeg")
 (define-runtime-path tweak-path "tweak.png")
 (define-runtime-path map-path "map.png")
@@ -296,11 +298,6 @@
           (show (bracket-right 20 (pict-height cites) 10)
                 (>= stage oaam)))))
 
-(define (chop-at min max i)
-  (cond [(< i min) min]
-        [(> i max) max]
-        [else i]))
-
 (define fewer-col "medium forest green")
 (define faster-col "slateblue")
 (define (talk-focus stage)
@@ -373,27 +370,11 @@
                                      (rotate (with-size 28 @t{Explore faster}) (/ pi -2))) faster-col)
                                    (and (>= stage fast) (< stage goal))))))
     (define-values (x y) (lt-find bars i0))
-    (define placement
-      (pin-over bars x SCREEN-HEIGHT off-screen))
-    ;; unit-interval ∈ [0, 1].
-    ;; When unit-interval ∈ [min, max], uniformly scale from 0 to 1 as min approaches max.
-    ;; When unit-interval < min. 0
-    ;; When unit-interval > max. 1
-    (define (chopped-interval-scale min max)
-      (define 1/distance (/ 1 (- max min)))
-      (λ (unit-interval)
-         (cond [(< unit-interval min) 0]
-               [(> unit-interval max) 1]
-               [else (* 1/distance (- unit-interval min))])))
-    (λ (n)
-       (define num (vector-length is))
-       (cc-superimpose
-        (for/fold ([p* placement]) ([i (in-range num)])
-          (define ipict (vector-ref is i))
-          (slide-pict p* ipict off-screen ipict
-                      (fast-start ((chopped-interval-scale (/ i num) (min 1 (/ (add1 i) (- num 2)))) n))))
-        (show (with-size 48 (shadow-frame @t{Goal: Directly implementable math}))
-              (= stage goal))))))
+    (define placement (pin-over bars x SCREEN-HEIGHT off-screen))
+    (define slider (slide-and-compose placement is off-screen))
+    (λ (n) (cc-superimpose (slider n)
+                           (show (with-size 48 (shadow-frame @t{Goal: Directly implementable math}))
+                                 (= stage goal))))))
 (define focus-title (with-size 50 @t{OAAM outline}))
 
 (define bench-overview
