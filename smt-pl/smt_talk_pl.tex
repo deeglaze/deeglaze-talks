@@ -1,0 +1,305 @@
+
+\documentclass[10pt,mathserif]{beamer}
+
+\usepackage{beamerthemesplit}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm,listings,cite}
+\usepackage{graphicx}
+%\usepackage[latin1]{inputenc}
+
+
+
+\useoutertheme{infolines}
+
+\title{SMT Solver Theory and Applications}
+
+\author{Ian Johnson}
+
+\date{November 18, 2009}
+
+\definecolor{blue}{rgb}{0,0,1.0}
+\newcommand{\blue}[1]{{\color{blue}#1}}
+\definecolor{green}{rgb}{0,1.0,0}
+\newcommand{\green}[1]{{\color{green}#1}}
+\definecolor{red}{rgb}{1.0,0,0}
+\newcommand{\red}[1]{{\color{red}#1}}
+\definecolor{grey}{rgb}{0.6,0.6,0.6}
+\newcommand{\grey}[1]{{\color{grey}#1}}
+
+\AtBeginSection[]
+{
+  \begin{frame}<beamer>
+    \frametitle{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+
+\begin{document}
+
+
+\frame{\titlepage}
+
+\frame{
+\frametitle{Outline}
+\tableofcontents
+}
+
+\section{Vocabulary and Preliminaries}
+
+\frame{
+\frametitle{What is the SMT problem?}
+SMT stands for Satisfiability Modulo Theories, and is essentially a generalization of the SAT problem. \\
+We say ``modulo theories'' because the Boolean predicates of SAT are now first order sentences in a logic.
+\begin{itemize}
+\item At least NP-complete and at most unbounded complexity problem with applications in AI, formal methods
+\item Input usually given in SMT-LIB format (CNF with sugar)
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Definitions}
+\begin{itemize}
+ \item A theory $T$ is a set of first order sentences.
+ \item A formula $F$ is \emph{$T$-satisfiable} or \emph{$T$-consistent} if $F\wedge T$ is satisfiable in the first order sense. Otherwise $F$ is \emph{$T$-inconsistent}.
+ \item A partial assignment $M$ is a $T$-model of a formula $F$ if $M$ is a $T$-consistent partial assignment and $M\models F$ (in the propositional sense).
+ \item For two formulas $F$ and $G$, we say $F \models_T G$ if $F \wedge \neg G$ is $T$-inconsistent.
+ \item A \emph{theory lemma} is a clause $C$ such that $\emptyset \models_T C$.
+ \item A \emph{$T$-solver} is a decision$^*$ procedure that decides the $T$-satisfiability of conjunctions of ground literals.
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{A Short Look at DPLL}
+Based on the idea of unit propagation:\\
+$M\parallel F, C\vee l \Rightarrow M l \parallel F,C\vee l \mbox{ if }\left\{\begin{array}{l}M\models \neg C \\ l \mbox{ is undefined in } M\end{array}\right.$ \\
+conflict-driven backjumping: \\
+$M l^d N \parallel F,C \Rightarrow M l' \parallel F,C \mbox{ if }\left\{\begin{array}{l}
+M l^d N \models \neg C \mbox{ and there is}\\
+\mbox{some clause } C'\vee l'\mbox { such that:} \\
+\quad F,C\models C'\vee l' \mbox{ and } M\models \neg C', \\
+\quad l' \mbox{ is undefined in } M, \mbox{ and } \\
+\quad l' \mbox{ or } \neg l' \mbox{occurs in } F \mbox{ or in } M l^d N                                                                         
+\end{array}\right.$ \\
+and conflict-driven learning: \\
+$M \parallel F \Rightarrow M \parallel F, C \mbox{ if }\left\{\begin{array}{l}\mbox{each atom of } C\mbox{ occurs in }F \mbox{ or in } M \\ F\models C\end{array}\right.$
+}
+
+\section{Previous Strategies}
+
+\subsection{Eager Approaches}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Propositional Translation}
+Satisfiability-preserving translation to a propositional CNF formula. \\
+\pause
+Pros:
+\begin{itemize}
+ \item Easy to do translations.
+ \item Leverages the existant SAT-solving technology.
+\end{itemize}
+\pause
+Cons:
+\begin{itemize}
+ \item Not all theories can be translated this way.
+ \item Translation causes unacceptable blow-up in problem size.
+ \item Search starts only after entire problem is translated.
+ \item Size of the problem usually consumes all resources before starting the search.
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Calling External SAT Solver}
+The $T$-solver calls a SAT solver on the formula to get a (propositionally) satisfying assignment and checks its $T$-consistency. If inconsistent, the conflicting clause is added to the formula and sent back to the SAT solver. \\
+\pause
+Pros:
+\begin{itemize}
+ \item Only have to write the $T$-solver.
+ \item Again leverages the existant SAT-solving technology.
+\end{itemize}
+\pause
+Cons:
+\begin{itemize}
+ \item Search must complete entirely before $T$-inconsistency is reported.
+ \item Search must start over at the beginning if last assignment failed.
+\end{itemize}
+
+}
+
+\subsection{Lazy Approaches}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Incremental $T$-solving}
+Communicates with the DPLL module to inform of $T$-inconsistency before an entire model is constructed, either at every decision or on every $k$ decisions. \\
+\pause
+Pros:
+\begin{itemize}
+ \item Early pruning of search space.
+\end{itemize}
+\pause
+Cons:
+\begin{itemize}
+ \item Not always effective. The $T$-solver should be faster in processing one additional input literal than in reprocessing from scratch, but for some theories this is impossible.
+ \item Finding the ``sweet spot'', or the right $k$ for the best performance is guess work.
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{On-line SAT solving}
+Builds off the incremental approach by allowing the $T$-solver to generate conflicting clauses to aid with backjumping. \\
+\pause
+Pros:
+\begin{itemize}
+ \item Early pruning
+ \item More aggressive pruning.
+\end{itemize}
+\pause
+Cons:
+\begin{itemize}
+ \item Conflicting clauses hard to generate.
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Theory Propagation}
+Guides the search process by taking the current partial assignment and deriving other subterms of the formula. $T$-solver is no longer a \textit{validator} for the DPLL search. \\
+\pause
+Pros:
+\begin{itemize}
+ \item Analagous to the importance of unit propagation in DPLL.
+ \item For many theories, this process exhaustively executed gives a great increase of performance. 
+ \item Exhaustively executed, this eliminates the need for unit propagation on theory lemmas.
+\end{itemize}
+\pause
+Cons:
+\begin{itemize}
+ \item Conflict analysis highly non-trivial.
+ \item If not performed exhaustively, duplicate results are extraneously generated.
+\end{itemize}
+
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The DPLL(T) Framework}
+\frame{
+\frametitle{Transactions between DPLL and T-Solver}
+Sufficient communication for an incremental on-line solver with theory propagation is given in the following set of messages:
+\begin{itemize}
+ \item Notify $T$-Solver that a certain literal has been set to true.
+\pause
+ \item Ask $T$-Solver to check the current partial assignment is $T$-inconsistent (with \textit{strength}) and give an \textit{explanation}.
+\pause
+ \item Ask $T$-Solver to identify currently undefined input literals that are $T$-consequences of $M$.
+\pause
+ \item Ask $T$-Solver to provide a justification for a $T$-entailment of a theory-propagated literal for conflict clause learning.
+\pause
+ \item Ask $T$-Solver to undo the last $n$ notifications that a literal has been set to true.
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Useful Theories}
+\frame{
+\frametitle{Equality of Uninterpreted Functions (EUF)}
+Finds basic unsatisfiable errors such as
+\begin{equation*}
+(f(f(a))\neq b \vee f(f(f(b)))\neq b) \wedge f(a) =a \wedge a = b
+\end{equation*}
+by using a congruence closure algorithm to create congruence classes and checking the results against a list of suspected equalities and disequalities, inconsistencies are found.
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Difference Logic}
+(Still NP-Complete) subset of integer linear arithmetic problems where all constraints are of the form
+\begin{equation*}
+ x-y \le c
+\end{equation*}
+Questions in bounded model checking of timed automata along with questions of circuit timing analysis can be answered with this logic.\\
+(Na\"ively solvable using an iterative Bellman-Ford method, but better negative-weight cycle detection algorithms are known.)
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Bit-Vectors}
+NP-Complete theory that allows fixed-width bit vectors to have the following operators executed on them:
+\begin{itemize}
+ \item Assignment $=$
+ \item Named selection $[i:j]$
+ \item Concatenation $::$
+ \item Arithmetic $\{+,-,*,<\}$ where $*$ is multiplication by a scalar
+ \item Bitwise operators $\{{\bf AND}, {\bf OR}, {\bf NOT}\}$
+\end{itemize}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frame{
+\frametitle{Interpreted Sets and Bounded Quantification}
+An expressive NP-Complete theory of heap-manipulating loop-free and procedure-free programs. Strategy for proving a program $T$ correct: compute $wp(T, true)$ and decide satisfiability of $\neg wp(T,true)$, giving $\neg wp(T,true)$ is unsatisfiable if and only if $T$ does not go wrong. \\
+\begin{figure}
+{\scriptsize
+\begin{align*}
+T \in Stmt ::= & Assert(\varphi) \,\mid\, Assume(\varphi) \,\mid\, \\
+	       & x := new \,\mid\, free(x) \,\mid\, x := t \,\mid\, \\
+               & f(x) := y \,\mid\, T_1;T_2 \,\mid\, T_1\square T_2
+\end{align*}
+\begin{align*}
+\begin{array}{lll}
+c &\in Integer \\
+x &\in Variable \\
+f &\in Function \\
+\varphi &\in Formula &::= \alpha \,\mid\, \varphi_1 \wedge \varphi_2 \,\mid\, \varphi_1 \vee \varphi_2 \,\mid\, \neg \varphi \\
+\alpha &\in \forall Formula &::= \gamma \,\mid\, \alpha_1 \wedge \alpha_2 \,\mid\, \alpha_1 \wedge \alpha_2 \,\mid\, \forall x \in S.\alpha \\
+\gamma &\in GFormula &::= t_1 = t_2 \,\mid\, t_1 < t_2 \,\mid\, t_1\xrightarrow{f} t_2\xrightarrow{f} t_3 \,\mid\, \neg \gamma \\
+t &\in Term &::= c \,\mid\, x \,\mid\, t_1 - t_2 \,\mid\, t_1 + t_2 \,\mid\, f(t) \,\mid\, ite(t = t', t_1,t_2) \\
+S &\in Set &::= g^{-1}(t) \,\mid\, Btwn(f,t_1,t_2)
+\end{array}
+\end{align*}
+}
+\caption{Program statement syntax (top) and formula syntax (bottom)}
+\label{fig:congruence_classes}
+\end{figure}
+}
+
+\section{Combining Theories}
+\frame{
+\frametitle{Nelson-Oppen Method}
+A solver for the union of theories $T_1$ and $T_2$ can be constructed using the Nelson-Oppen procedure if
+\begin{itemize}
+ \item The two have disjoint signatures ($\Sigma_1 \cap \Sigma_2 = \{=\}$)
+ \item Both are \textit{stably infinite} (i.e., every satisfiable quantifier-free formula is satisfiable in an infinite model)
+\end{itemize}
+\pause
+The procedure is based on the process of \textit{purification}. \\
+\pause
+For $\Gamma$ a set of literals of $\Sigma_1\cup \Sigma_2$,  the purified form of $\Gamma$ is $\Gamma_1\wedge\Gamma_2$ such that \\
+\begin{equation*}
+\Gamma_i \subseteq (\Sigma_i \cup \alpha) \text{ for } \alpha = \{{\cal V}(\Gamma_1)\cap{\cal V}(\Gamma_2)\}
+\end{equation*}
+${\cal V}(\Gamma_i)$ is the set of variables in $\Gamma_i$.
+}
+
+\frame{
+\frametitle{Nelson-Oppen Algorithm}
+Recall: $\alpha = \{{\cal V}(\Gamma_1)\cap{\cal V}(\Gamma_2)\}$ \\
+A partition $\phi$ (conjuction of many equalities and disequalities) of $\alpha$ is guessed and the individual solvers return if $\Gamma_i\wedge\phi$ is satisfiable. \\
+\pause
+Theoretically-based optimization: \\
+A theory is \emph{convex} iff for for all finite sets $\Gamma$ of literals and for all non-empty disjunctions $\bigvee_{i\in I}{u_i \simeq v_i}$ of variables, 
+\begin{equation*}
+\Gamma \models_T \bigvee_{i\in I}{u_i\simeq v_i} \text{ iff } \Gamma \models_T u_i \simeq v_i \text{ for some } i\in I
+\end{equation*} \\
+If the two theories are convex, then this guessing can be changed into deducing the correct partition by propagating equalities.\\
+Let $\Gamma_2$ know if $T_1\cup \Gamma_1 \models x \simeq y$ and vice versa.
+}
+
+\section{Reading}
+
+\frame{
+\frametitle{References}
+\begin{itemize}
+\item R. Nieuwenhuis and A. Oliveras: Solving SAT and SAT Modulo Theories: from an Abstract Davis-Putnam-Logemann-Loveland Procedure to DPLL(T)
+\item R. Bruttomesso et al: A Lazy and Layered SMT(BV) Solver for Hard Industrial Verification Problems
+\item S. Lahiri and S. Qadeer: Back to the Future: Revisiting Precise Program Verification using SMT Solvers
+\item L. de Moura et al: A Tutorial on Satisfiability Modulo Theories
+\end{itemize}
+}
+
+\end{document}
+

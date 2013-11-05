@@ -1,0 +1,121 @@
+I'm here to talk about proof strategies for large systems in
+rewriting-based theorem provers.
+
+Today, theorem provers live ACL2, PVS & Isabelle are used te verify
+correctness of really serious stuff: large projects that are built by
+many people, with multiple layers of abstraction
+  Picture: AAMP7G
+  For example, the AAMP7G separation kernel was verified on top of a
+  simulator built in ACL2 for the chip itself. This was a very serious
+  undertaking that needed many optimizations along the way - not just
+  for execution, but for proofs as well.
+
+With such a large-spanning project, multiple books (libraries) are
+needed, and must have experts ``tune'' them to use rules wisely. It is
+not at all clear if two independently tuned books on the same topic
+will cooperate together (I'm not talking about rewrite loops, but
+rather optimality of rule selection)
+
+So what goes into tuning a book? First, the auther must have an
+understanding of the rewriter - I know that in ACL2 and PVS for
+example, the rewriter tries to apply rules in the reverse order they
+were proven. This strategy stems from mathematics, simple results
+build to stronger results, which lead to even stronger results,
+etc. There is usually not much need to pick and choose rules about
+multiple separate systems, which may have been introduced in an
+arbitrary order, but their relevance is all the same.
+  Picture: tree of components? (Too complicated)
+   
+
+What we propose is to spice up this strategy of searching back in time
+in a flat, linear manner, and to search through structure - we should
+try the most abstract/general rules that will give us large
+simplifications before we continue on to try weaker rules. What we do
+not suggest, however, is that you litter your proofs with annotations
+stating what should be considered good or less good - this falls into
+almost the same problem as needing an expert user to tune a library.
+
+We propose automatically assigning rules a priority based on carefully
+chosen heuristics, and then during the proof process, try rules of
+highest priority to lowest priority. 
+
+Is this practical? Is it worth the overhead? 
+  Picture: Pipelined machine
+
+We have used our priority framework to significantly simplify a proof
+of a pipelined machine's correctness. Before priorities, the proof ran
+for 15 minutes and then ran out of memory on my computer, and 20
+minutes to prove on my mentor's computer. After priorities, not only
+did the proof go through on my machine, it only took 2 minutes!
+This is an example machine that was built by my mentor, an expert ACL2
+user, but with a simple prioritization of function definition rules,
+we see a significant improvement. This just demonstrates that tuning
+one's books can only get you so far, and the effort could possibly be
+eliminated.
+
+I suppose that's enough teasing, let us discuss what it is we did.
+
+First we prioritize function definitions. Allow me to tell you how
+with an example.
+  Picture: Call Graph
+
+Suppose each node in this graph is a function, and each directed edge
+is from a function to a function it calls. Natural way to describe
+these functions is that the top function here is the most abstract -
+it has the other functions do the detailed work, and the bottom one
+here is the weakest - it does things we may consider to detailed for a
+high level argument.
+
+Due to technical and aesthetic reasons, we decided that the fewer
+priorities the better, so we group these functions like so:
+  Picture: Prioritized Call Graph
+ 
+The thing to notice here is that a function's priority is related to
+the longest path of call dependence (longest path to a node). 
+We make a reasonable assumption that the priority of mutually
+recursive functions should be equal, so we can analyze a DAG instead
+of an arbitrary graph. This allows us to do the prioritization you see
+here in linear time.
+
+So sure, that's kind of pretty, but functions are admitted from
+weakest to most abstract already, so what have we done? Well first we
+have the ability to add edges between nodes, so that connections you
+make conceptually can be matched in the function priority, secondly, 
+we use the priority of functions when prioritizing theorems, and
+thirdly, rewriting with priorities allows the theorem prover to not
+have to care about definition order, like many programming languages,
+as where something is located now has no impact on the semantics of
+the rewriter.
+
+This brings us to the second aspect of automated rule prioritization -
+how do you judge what a good theorem is? It also seems that a static
+priority could hurt you, since different branches of a proof can
+consider different rules more relevant, a topic I'll touch on a little
+later.
+
+We have a lexicographic ordering on the following three things:
+Rule conditionality, syntactic difficulty, function it's about.
+
+We say a rule is conditional if it has hypotheses, so this is a quick
+analysis. 
+
+What is the function a theorem is about? We consider rules to be of
+two different forms - assertions and rewrites.
+  1) (hyps => (f ...))
+  2) (hyps => (equal (f ...) r)
+We just consider the priority of f here.
+
+Now syntactic difficulty is where the care comes in. There are many
+analyses one can do, but what we propose is really the bare minimum of
+what one should do. 
+  Table: Syntactic difficulty
+  1. r is a constant
+  2. r is a subterm
+  3. r is a deleted term
+  4. r t< l
+  5. r t= l
+  6. Assertions & otherwise
+
+We consider assertions to be most difficult, since
+often they do not help in the simplification process unless backchaining.
+
