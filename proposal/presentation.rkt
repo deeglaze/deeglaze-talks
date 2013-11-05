@@ -1,4 +1,3 @@
-
 #lang at-exp slideshow
 (require unstable/gui/slideshow
          racket/splicing

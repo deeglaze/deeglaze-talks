@@ -1,0 +1,13 @@
+*/compiled/
+*/.gitignore
+*~
+*.vrb
+*.aux
+*.out
+*.log
+*.snm
+*.toc
+*.bbl
+*.nav
+*.backup
+\#*
