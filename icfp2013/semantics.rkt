@@ -49,7 +49,7 @@
 
                              (hc-append @Mtt{M} @tt{ ∈ } @t{Memo})
                              @tt{ = }
-                             (hc-append @t{Expr × Env × Store → ℘(Value)})
+                             (hc-append @t{Expr × Env × Store → ℘(Value × Store)})
 
                              (hc-append @Ξtt{Ξ} @tt{ ∈ } @t{KTable})
                              @tt{ = }
@@ -79,7 +79,11 @@
            (list rc-superimpose lc-superimpose) cc-superimpose 100 5))
 
   (define (changed stage p when #:color [color "slateblue"])
-    (define b (and (show-change?) (= stage when)))
+    (define b (and (show-change?)
+                   (if (number? when)
+                       (= stage when)
+                       ;; when is a list of numbers
+                       (member stage when))))
     (define p* (inset p 2))
     (cc-superimpose
      (show (colorize (filled-rounded-rectangle (pict-width p*) (pict-height p*))
@@ -128,12 +132,12 @@
 
   (define (CESK-table stage [time #f])
     (do-want
-     (define σ? (> stage sCEK))
+     (define σ? (>= stage sCESK))
      (define AAM? (and (not (pushdown?)) (>= stage sCESK*)))
      (define abs? (>= stage saCESK))
      (define M? (> stage smove))
-     (define show-rt? (> stage sCESKM))
-     (define Ξ? (> stage sCESKM-ret))
+     (define show-rt? (>= stage sCESKM-ret))
+     (define Ξ? (>= stage sCESKMΞ))
      (define fade? (= stage sfade))
      (define move? (= stage smove))
      (define lazy-problem? (= stage lazy))
@@ -143,7 +147,7 @@
 
      (define (changed* p when #:color [color "slateblue"]) (changed stage p when #:color color))
      (define (κ̂* fresh?) (κ̂ changed* AAM? fresh?))
-     (define OR (with24 (text "or" null 20)))
+     (define OR (text "or" null 20))
      (define stepto (lt-superimpose (ghost OR) (with24 @tt{↦})))
 
      (define-values (chσ chσ′ M M′ Ξ Ξ′ ctx a) (constants))
@@ -160,7 +164,8 @@
                   (list
                    (show (if tag? (chσ*) chσ) σ?)
                    (fcons (nstruct "fn" (lam) @idtt{ρ′}) (κ̂* #f))
-                   (showP M M?) (showP Ξ Ξ?)))))
+                   (showP (changed* M sCESKM) M?)
+                   (showP (changed* Ξ sCESKMΞ) Ξ?)))))
         'call))
 
      (define (ev-state e . rest)
@@ -207,14 +212,14 @@
                     (show (chσ′*) σ?)
                     (if (pushdown?)
                         (pict-cond
-                         [(and M? Ξ?) (nstruct "rt" ctx)
+                         [(and M? Ξ?) (changed* (nstruct "rt" ctx) sCESKMΞ)
                           #;(fcons (nstruct "rt" ctx) @tt{[]})
                           ]
-                         [M? (fcons (nstruct "rt" ctx) @ctt{κ})]
+                         [M? (changed* (fcons (nstruct "rt" ctx) @ctt{κ}) sCESKM)]
                          [else @ctt{κ}])
                         @ctt{κ})
-                    (showP M M?)
-                    (showP Ξ′ Ξ?)))
+                    (showP (changed* M sCESKM) M?)
+                    (showP (changed* Ξ′ sCESKMΞ) Ξ?)))
         (append 
          (list (call-pict #t)
                stepto
@@ -230,10 +235,17 @@
                                      AAM?)
                                sCESK*))))
          (if M?
-             (list (blank 0) OR
-                   (hc-append (ntuple (expr @tt{v′}) @idtt{ρ} @ctt{κ}
-                                      (showP M #t) (showP Ξ′ Ξ?))
-                              @t{ if } (expr @tt{v′}) @tt{ ∈ } (call M ctx)))
+             (list (blank 0) OR (changed*
+                                 (ntuple (expr @tt{v′}) @idtt{ρ‴} @σtt{σ″} @ctt{κ}
+                                         (showP M #t)
+                                         (showP (changed* Ξ′ sCESKMΞ) Ξ?))
+                                 sCESKM)
+                   (blank 0) (blank 0) (changed*
+                                        (hc-append (text "if " null 20)
+                                                   (tuple (tuple (expr @tt{v′}) @idtt{ρ‴}) @σtt{σ″})
+                                                   @tt{ ∈ }
+                                                   (call M ctx))
+                                        sCESKM))
              (list)))))
 
      (define (σext elm abs-wrap)
@@ -256,23 +268,26 @@
                (hc-append 
                 @t{where } @idtt{ρ″} @tt{ = } (ext-one @idtt{ρ′} @idtt{x}
                                                        (if σ? a (tuple @idtt{v} @idtt{ρ}))))
-               (blank 0) (blank 0) (show (hc-append (ghost @t{where })
-                                                    (chσ′*)
-                                                    @tt{ = }
-                                                    (lt-superimpose (show (callσ #f) (not lazy-fix?))
-                                                                    (show (callσ #t) lazy-fix?)))
-                                         σ?))
-         (if M?
-             (append
-              (list (blank 0) (blank 0)
-                    (hc-append (ghost @t{where }) ctx @tt{ = } (tuple @idtt{e} @idtt{ρ″} (chσ′*))))
-              (map (λ (p) (show p Ξ?))
-                   (list
-                    (blank 0) (blank 0)
-                    ;; XXX: Not sure whether to put truly-concrete, but not sure if right ext-one,
-                    ;; or what we show in the paper, with join-one... Going with paper.
-                    (hc-append (ghost @t{where }) Ξ′ @tt{ = } (join-one Ξ ctx (braces @ctt{κ}))))))
-             (list)))))
+               (blank 0) (blank 0)
+               (show
+                (vl-append
+                 (hc-append (ghost @t{where })
+                            (chσ′*)
+                            @tt{ = }
+                            (lt-superimpose (show (callσ #f) (not lazy-fix?))
+                                            (show (callσ #t) lazy-fix?)))
+                 (if M?
+                     (vl-append
+                      (changed* (hc-append (ghost @t{where }) ctx @tt{ = } (tuple @idtt{e} @idtt{ρ″} (chσ′*)))
+                                sCESKM)
+                      ;; XXX: Not sure whether to put truly-concrete, but not sure if right ext-one,
+                      ;; or what we show in the paper, with join-one... Going with paper.
+
+                      (show (changed*
+                             (hc-append (ghost @t{where }) Ξ′ @tt{ = } (join-one Ξ ctx (braces @ctt{κ})))
+                             sCESKMΞ) Ξ?))
+                     (blank 0)))
+                     σ?)))))
 
      (define rt-elms
        (with24
@@ -281,18 +296,21 @@
               (ntuple (expr @tt{v}) @idtt{ρ} (chσ*)
                       (if (pushdown?)
                           (pict-if Ξ?
-                                   (nstruct "rt" ctx)
+                                   (changed* (nstruct "rt" ctx) sCESKMΞ)
                                    (fcons (nstruct "rt" ctx) @ctt{κ}))
                           @ctt{κ})
-                      #;(fcons (nstruct "rt" ctx) (if Ξ? @tt{[]} @ctt{κ})) (showP M #t) (showP Ξ Ξ?)
+                      #;(fcons (nstruct "rt" ctx) (if Ξ? @tt{[]} @ctt{κ})) 
+                      (showP M #t)
+                      (showP (changed* Ξ sCESKMΞ) Ξ?)
                       )
-              @tt{↦}
+              stepto
               (ntuple (expr @tt{v}) @idtt{ρ} (chσ*) @ctt{κ}
-                      (showP M′ #t) (showP Ξ Ξ?))
+                      (showP M′ #t)
+                      (showP (changed* Ξ sCESKMΞ) Ξ?))
               (blank 0) (blank 0)
-              (show (hc-append @t{ if } @ctt{κ} @tt{ ∈ } (call Ξ ctx)) Ξ?)
+              (show (changed* (hc-append @t{ if } @ctt{κ} @tt{ ∈ } (call Ξ ctx)) sCESKMΞ) Ξ?)
               (blank 0) (blank 0)
-              (hc-append @t{where } M′ @tt{ = } (join-one M ctx (braces (tuple @idtt{v} @idtt{ρ}))))))))
+              (hc-append @t{where } M′ @tt{ = } (join-one M ctx (braces (tuple (tuple @idtt{v} @idtt{ρ}) @σtt{σ}))))))))
 
      (define var-condition
        (with24
@@ -334,7 +352,7 @@
          (list
           (ev-lhs x-var
                   @idtt{ρ} (show (chσ*) σ?) @ctt{κ} (showP M M?) (showP Ξ Ξ?))
-          (if (abs-comp?) (blank 0) @tt{↦})
+          (if (abs-comp?) (blank 0) stepto)
           (lc-superimpose (show (var-rhs #f) (not lazy-fix?))
                           (show (var-rhs #t) lazy-fix?)))
          (if (abs-comp?)
@@ -347,7 +365,7 @@
          (list
           (ev-lhs fn-app @idtt{ρ} (show (chσ*) σ?) @ctt{κ}
                   (showP M M?) (showP Ξ Ξ?))
-          (if (abs-comp?) (blank 0) @tt{↦})
+          (if (abs-comp?) (blank 0) stepto)
           (cond [(pushdown?) (app-rhs (chσ*))]
                 [(abs-comp?) (app-rhs (chσ′*))]
                 [else (hc-append (app-rhs (pict-if (= stage sCESK) (chσ*) (changed* (chσ′*) sCESK*)))
@@ -367,7 +385,7 @@
                     (show (chσ*) σ?)
                     (fcons (nstruct "ar" @idtt{e} @idtt{ρ}) (κ̂* #f))
                     (showP M M?) (showP Ξ Ξ?)))))
-          @tt{↦}
+          stepto
           (ev-state (expr @tt{e}) @idtt{ρ} (show (chσ*) σ?)
                     (fcons (nstruct "fn" @idtt{v} @idtt{ρ}) (κ̂* #f))
                     (showP M M?) (showP Ξ Ξ?))))))
@@ -433,13 +451,13 @@
         [else pict*]))
 
      ;; stupid pixel-pushing
-     (define starty 341)
-     (define endy -45)
+     (define starty 349)
+     (define endy -47)
      (define-values (rd-x rd-y) (lt-find pict (find-tag pict 'reduction)))
      (define-values (sc-x sc-y) (lt-find pict (find-tag pict 'where-clause)))
      (define diff (- sc-y rd-y))
      (define interpy (and time (+ (* (- 1.0 time) starty) (* time endy))))
-     (define interpsc-y (and time (+ (* (- 1.0 time) (+ starty diff)) (* time (+ endy (* 2 diff))))))
+     (define interpsc-y (and time (+ (* (- 1.0 time) (+ starty diff)) (* time (+ endy (* 3 diff))))))
      (if (= stage smove)
          (pin-over (pin-over (ghost pict)
                              sc-x interpsc-y
