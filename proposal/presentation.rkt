@@ -11,6 +11,7 @@
          slideshow/play
          racket/gui/base
          scheme/runtime-path)
+
 (define-runtime-path logo-path "../utils/prl-logo.png")
 (define-runtime-path jail-path "jail.png")
 (define-runtime-path horse-path "horse-macro.png")
@@ -29,76 +30,42 @@
 
 (current-main-font "Linux Libertine Capitals O")
 
-;; XXX: straight from texpict/private/common-unit.rkt
-(module+ disgusting-copy-paste
-  (provide frame-without-bottom)
-  (define default-seg 5)
-  (define (quotient* a b)
-    (if (integer? a)
-        (quotient a b)
-        (/ a b)))
-  (define (rlist b a) (list a b))
-  (define (dash-line width height rotate seg)
-    (let ([vpos (quotient* height 2)])
-      (make-pict
-       `(picture
-         ,@(rotate width height)
-         ,@(if (>= seg width)
-               `((put ,@(rotate 0 vpos) (line ,@(rotate 1 0) ,width)))
-               (let* ([remain (+ (- width (floor width))
-                                 (remainder (floor width) (* 2 seg)))]
-                      [count (inexact->exact (floor (quotient* width (* 2 seg))))]
-                      [lremain (quotient* remain 2)]
-                      [rremain (- remain lremain)])
-                 `((put ,@(rotate 0 vpos) (line ,@(rotate 1 0) ,lremain))
-                   ,@(let loop ([count count][pos lremain])
-                       (if (zero? count)
-                           null
-                           (cons `(put ,@(rotate (+ pos seg) vpos) 
-                                       (line ,@(rotate 1 0) ,seg))
-                                 (loop (sub1 count) (+ pos seg seg)))))
-                   (put ,@(rotate (- width rremain) vpos) 
-                        (line ,@(rotate 1 0) ,rremain))))))
-       (car (rotate width height))
-       (cadr (rotate width height))
-       (cadr (rotate 0 height)) 0
-       null
-       #f
-       #f)))
-  (define dash-hline
-    (case-lambda 
-      [(width height) (dash-hline width height default-seg)]
-      [(width height seg) (dash-line width height list seg)]))
-
-  (define dash-vline
-    (case-lambda 
-      [(width height) (dash-vline width height default-seg)]
-      [(width height seg) (dash-line height width rlist seg)]))
-  (define (extend-pict box dx dy dw da dd draw)
-    (let ([w (pict-width box)]
-          [h (pict-height box)]
-          [d (pict-descent box)]
-          [a (pict-ascent box)])
-      (make-pict (if draw draw (pict-draw box))
-                 (+ w dw) (+ h da dd) 
-                 (max 0 (+ a da)) (max 0 (+ d dd))
-                 (list (make-child box dx dy 1 1 0 0))
-                 #f
-                 (pict-last box))))
-  ;; Aaaand the one new thing
-  (define (frame-without-bottom box)
+(module+ pict-utils
+  (provide frame* arrows-back-and-forth tagged-shadow-frame)
+  (define (frame* box #:color [color "black"] #:show [which '(l r t b)])
     (define w (pict-width box))
     (define h (pict-height box))
-    (define seg (max w h))
-    (extend-pict
-     box 0 0 0 0 0
-     `(picture
-       ,w ,h
-       (put 0 0 ,(pict-draw box))
-       ;;(put 0 0 ,(pict-draw (dash-hline w 0 seg)))
-       (put 0 ,h ,(pict-draw (dash-hline w 0 seg)))
-       (put 0 0 ,(pict-draw (dash-vline 0 h seg)))
-       (put ,w 0 ,(pict-draw (dash-vline 0 h seg)))))))
+    (define vert (colorize (vline 0 h) color))
+    (define horz (colorize (hline w 0) color))
+    (lb-superimpose
+     (rt-superimpose
+      (lt-superimpose box
+                      (show vert (memv 'l which))
+                      (show horz (memv 't which)))
+      (show vert (memv 'r which)))
+     (show horz (memv 'b which))))
+  (define (arrows-back-and-forth base left right)
+    (pin-arrow-line 10
+                    ;; bottom arrow
+                    (pin-arrow-line 10 base
+                                    left cb-find right cb-find
+                                    #:start-pull 0.5 #:end-pull 0.5
+                                    #:start-angle (* 3/2 pi) #:end-angle (* 1/2 pi))
+                    ;; top arrow
+                    right ct-find left ct-find
+                    #:start-pull 0.5 #:end-pull 0.5
+                    #:start-angle (* 1/2 pi) #:end-angle (* 3/2 pi)))
+  (define (tagged-shadow-frame base top #:margin [frame-margin 20] #:sep [frame-sep 5])
+    (define top-frame
+      (frame*
+       (cc-superimpose
+        (colorize (filled-rectangle (pict-width top) (pict-height top)) "white")
+        top)
+       #:color "gray" #:show '(l t r)))
+    (pin-over
+     (shadow-frame base #:margin frame-margin #:sep frame-sep)
+     (sub1 (+ frame-sep frame-margin)) (+ (- (pict-height top-frame)) frame-margin 1)
+     top-frame)))
 
 (module+ stages
   (provide define/staged run-stages)
@@ -151,6 +118,7 @@
                                            [else #'#f])
                                    #,(if (attribute layout) #'layout #''auto))
                       #'#f))))))]))
+
   (define/match (run-stages v)
     [((staged-slide fn title num anim))
      (define simple (λ (i) (slide #:title title (fn i))))
@@ -174,8 +142,9 @@
   (require (submod ".." stages)
            (submod "../icfp2013/semantics.rkt" slide-deck)
            "../icfp2013/color-scheme.rkt"
-           (only-in "../icfp2013/pict-helpers.rkt" join-one braces nstruct production expr call tuple ntuple)
-           (submod ".." disgusting-copy-paste))
+           (only-in "../icfp2013/pict-helpers.rkt"
+                    join-one braces nstruct production expr call tuple ntuple)
+           (submod ".." pict-utils))
   (provide run-talk)
   (define (title)
     (parameterize ([current-slide-assembler bg-slide-assembler])
@@ -236,7 +205,10 @@
      -120 -75
      (g (scale (bitmap js-path) 0.1))))
 
-  (define/staged (useful stage) #:stages [base anim to-name-a-few] #:anim-at anim #:steps 30
+  (define/staged (useful stage)
+    #:stages [base anim to-name-a-few]
+    #:anim-at anim
+    #:steps 30
     (define big-font 28)
     (define base-pict (big @t{HOPA is useful}))
     (define (vlappend-vec v) (apply vl-append 3 (vector->list v)))
@@ -313,7 +285,16 @@
            (vc-append (blank 100)
                       @t{Maintainability}
                       (hc-append @t{Designability} (blank 400) @t{Grokability})))
-    (run-stages temporal))
+    (run-stages temporal)
+    ;; AAAaaand thesis
+    (slide
+     (parameterize ([current-font-size 30]
+                    [current-main-font "Sawasdee"])
+       (tagged-shadow-frame
+        (vc-append gap-size
+                   (hc-append (tag-pict (t "Precise ") 'precise) (t "and ") (tag-pict (t "performant") 'perf) (t " analyses for higher-order languages"))
+                   (hc-append (t "can be ") (tag-pict (t "systematically constructed") 'systematic) (t " from their semantics.")))
+        (inset (big (bt "Thesis:")) 10)))))
 
   (define/staged (temporal stage) #:stages [question horse hors jail]
     (define base (big @t{Temporal properties?}))
@@ -333,7 +314,8 @@
     (slide (big (t "What have I done for HOPA?")))
     (run-stages what-I-did)
     (run-stages essence-slogan)
-    #;
+    (slide (big (bt "TODO: Example")))
+
     (parameterize ([use-color? #f])
       (slide (a-state))
       (play (λ (t) (CESK-table sfade t)))
@@ -342,26 +324,43 @@
       (slide (CESK-table sCESKM))
       (slide (CESK-table sCESKM-ret))
       (slide (CESK-table sCESKMΞ)))
+
     (run-stages summaries-cfa2)
+
     (slide (big (t "Recipe for first-class control"))
            'next
            (hc-append @ctt{κ} (t " as values (storeable)")))
+
     (run-stages kont-values-problem)
+
     (slide (big (t "New environment \"closes\" heap"))
            (big (hc-append (t "Control closure ") @tt{χ} (t " : ") (addr @t{Addr}) @tt{ → } (t "℘(Store)")))
            'next
            (big (t "Context = CContext ∪ SContext"))
            (big (production (hc-append @ctxtt{Γ} (t " ∈ CContext")) (tuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ})))
            (big (production (hc-append @ctxtt{Γ̂}(t " ∈ SContext")) (tuple (expr @tt{e}) @idtt{ρ} (addr @tt{a})))))
-    (slide
-     (big (t "In the context of"))
-     (big (ntuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ} @ctt{κ} @Mtt{M} @Ξtt{Ξ}))
-     (big (t "Interpret"))
-     (tuple (expr @tt{e′}) @idtt{ρ′} (addr @tt{a}))
-     (big (t "as"))
-     (braces (tuple (expr @tt{e′}) @idtt{ρ′} @σtt{σ′} @tt{χ′}) @tt{ ∈ } (call @tt{dom} @Ξtt{Ξ})
-              @tt{ : } @σtt{σ′} @tt{ ∈ } (call @tt{χ} (addr @tt{a})) @t{ and }
-              @tt{χ′ ⊑ χ})))
+    ;; how 1st class control generalizes CFA2 (well, not /how/, but describes the mechanism)
+    (run-stages big-jump))
+
+  (define/staged (big-jump stage) #:stages [big-rule the-reveal]
+    (define base
+      (vc-append gap-size
+                 (big (t "In the context of"))
+                 (big (ntuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ} @ctt{κ} @Mtt{M} @Ξtt{Ξ}))
+                 (big (t "Interpret"))
+                 (tuple (expr @tt{e′}) @idtt{ρ′} (addr @tt{a}))
+                 (big (t "as"))
+                 (braces (tuple (expr @tt{e′}) @idtt{ρ′} @σtt{σ′} @tt{χ′}) @tt{ ∈ } (call @tt{dom} @Ξtt{Ξ})
+                         @tt{ : } @σtt{σ′} @tt{ ∈ } (call @tt{χ} (addr @tt{a})) @t{ and }
+                         @tt{χ′ ⊑ χ})))
+    (match stage
+      [(== big-rule) base]
+      [(== the-reveal)
+       (cc-superimpose
+        base
+        (tagged-shadow-frame (hc-append @t{CFA2 + } @tt{call/cc} (colorize (small (t " [ICFP 2011] ")) "gray")
+                                        @t{ is a special case})
+                             (inset (shadow (colorize (big (t "Surprise!")) "firebrick") 10 5) 10)))]))
   
   (define/staged (kont-values-problem stage) #:stages [see arrows solution]
     (define store-pict
@@ -379,18 +378,6 @@
               store-pict)
      (blank 50)
      (show (big (t "AAM: break circularity with indirection")) (= stage solution))))
-
-  (define (arrows-back-and-forth base left right)
-    (pin-arrow-line 10
-                    ;; bottom arrow
-                    (pin-arrow-line 10 base
-                                    left cb-find right cb-find
-                                    #:start-pull 0.5 #:end-pull 0.5
-                                    #:start-angle (* 3/2 pi) #:end-angle (* 1/2 pi))
-                    ;; top arrow
-                    right ct-find left ct-find
-                    #:start-pull 0.5 #:end-pull 0.5
-                    #:start-angle (* 1/2 pi) #:end-angle (* 3/2 pi)))
 
   (define/staged (what-I-did stage) #:stages [all focus]
     ;; Put "slogan" in a frame without a bottom so we can make it look like
@@ -414,24 +401,17 @@
   (define/staged (essence-slogan stage) #:stages [items slogan slogan-zoom]
     (define frame-margin 20)
     (define frame-sep 5)
-    (define slogan-pict
-      (inset (shadow (big (colorize @t{Slogan} "steel blue")) 10 5) 10))
-    (define white-bg
-      (cc-superimpose
-       (colorize (filled-rectangle (pict-width slogan-pict) (pict-height slogan-pict)) "white")
-       slogan-pict))
-    (define slogan-frame
-      (cc-superimpose white-bg
-                      (colorize (frame-without-bottom (ghost white-bg)) "gray")))
     (define the-slogan
-      (shadow-frame (hc-append
-                     (t "Summarization is ")
-                     (tag-pict
-                      (colorize-if (>= stage slogan-zoom) (t "context-sensitive") "medium forest green")
-                      'context)
-                     (t " memoization"))
-                    #:margin frame-margin
-                    #:sep frame-sep))
+      (tagged-shadow-frame
+       (hc-append
+        (t "Summarization is ")
+        (tag-pict
+         (colorize-if (>= stage slogan-zoom) (t "context-sensitive") "medium forest green")
+         'context)
+        (t " memoization"))
+       (inset (shadow (big (colorize @t{Slogan} "steel blue")) 10 5) 10)
+       #:margin frame-margin
+       #:sep frame-sep))
     (define some-contexts
       (vl-append @t{Heap}
                  @t{Stack root addresses}
@@ -452,13 +432,7 @@
      (show
       (pin-arrow-line
        15
-       (pin-over
-        (pin-over
-         the-slogan
-         (sub1 (+ frame-sep frame-margin))
-         (+ (- (pict-height slogan-frame)) frame-margin 1) slogan-frame)
-        490 200
-        (show framed-contexts (>= stage slogan-zoom)))
+       (pin-over the-slogan 490 200 (show framed-contexts (>= stage slogan-zoom)))
        framed-contexts
        ;; get at the bottom-right of the frame and not the drop-shadow
        (λ (pict path)
@@ -477,38 +451,40 @@
     (rb-superimpose
      (cc-superimpose
       (blank 900 700)
-      (vc-append gap-size
-                 (big (hc-append (t "Share ") @Mtt{M} (t " and ") @Ξtt{Ξ} (t ",")))
-                 (big (t "Get CFA2 without stack allocation"))    
-                 (blank 50)
-                 (show
-                  (big (hc-append(t "Stack inspection: include more in ") @ctxtt{ctx}))
-                  (= stage stack-inspection))))
+      (vc-append
+       gap-size
+       (big (hc-append (t "Share ") @Mtt{M} (t " and ") @Ξtt{Ξ} (t ",")))
+       (big (t "Get CFA2 without stack allocation"))    
+       (blank 50)
+       (show
+        (big (hc-append(t "Stack inspection: include more in ") @ctxtt{ctx}))
+        (= stage stack-inspection))))
      (colorize (text "[Essence of summarization]" null 20) "gray")))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; When do I propose to do all this crap?
 
   (define (timeline)
-    (slide (big @t{When will this happen?})
-           (table 3
-                  (append
-                   (list @bt{Project} @bt{Date range} @bt{Time})
-                   (with-size 18
-                     (list
-                      @t{Summarization} @t{Proposal - Feb 15} @t{~1.5 mo. (1 mo. paternity leave)}
-                      @t{Temporal contracts} @t{Feb 15 - Apr 15} @t{2 mo.}
-                      @t{Stack inspection} @t{Proposal - Apr 15} @t{parallel}
-                      @t{Writing} @t{Apr 15 - Aug 15} @t{4 mo.}))
-                   (list @bt{Total} (blank) @bt{7 mo.}))
-                  lc-superimpose
-                  cc-superimpose
-                  gap-size
-                  gap-size)
-           (blank 10)
-           (small @t{Committee reads for a while})
-           (blank 30)
-           @t{Defend in September 2014}))
+    (slide
+     (big @t{When will this happen?})
+     (table 3
+            (append
+             (list @bt{Project} @bt{Date range} @bt{Time})
+             (with-size 18
+               (list
+                @t{Summarization} @t{Proposal - Feb 15} @t{~1.5 mo. (1 mo. paternity leave)}
+                @t{Temporal contracts} @t{Feb 15 - Apr 15} @t{2 mo.}
+                @t{Stack inspection} @t{Proposal - Apr 15} @t{parallel}
+                @t{Writing} @t{Apr 15 - Aug 15} @t{4 mo.}))
+             (list @bt{Total} (blank) @bt{7 mo.}))
+            lc-superimpose
+            cc-superimpose
+            gap-size
+            gap-size)
+     (blank 10)
+     (small @t{Committee reads for a while, I make a few slides...})
+     (blank 30)
+     @t{Defend in September 2014}))
 
   (define (run-talk [sections '(intro/why useful wrong done timeline)])
     (when (memv 'intro/why sections)
@@ -521,4 +497,4 @@
 
 (module+ main
   (require (submod ".." slide-deck))
-  (run-talk '(done)))
+  (run-talk '(wrong)))
