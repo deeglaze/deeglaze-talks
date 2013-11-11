@@ -287,14 +287,51 @@
                       (hc-append @t{Designability} (blank 400) @t{Grokability})))
     (run-stages temporal)
     ;; AAAaaand thesis
-    (slide
-     (parameterize ([current-font-size 30]
-                    [current-main-font "Sawasdee"])
-       (tagged-shadow-frame
-        (vc-append gap-size
-                   (hc-append (tag-pict (t "Precise ") 'precise) (t "and ") (tag-pict (t "performant") 'perf) (t " analyses for higher-order languages"))
-                   (hc-append (t "can be ") (tag-pict (t "systematically constructed") 'systematic) (t " from their semantics.")))
-        (inset (big (bt "Thesis:")) 10)))))
+    (run-stages thesis-slide))
+
+  (define-syntax-rule (in-sawasdee . body) (parameterize ([current-main-font "Sawasdee"]) . body))
+
+  (define thesis-pict
+    (parameterize ([current-font-size 30])
+      (in-sawasdee
+       (vc-append
+        gap-size
+        (hc-append (tag-pict (hc-append (tag-pict (t "Precise ") 'precise) (t "and ") (tag-pict (t "performant") 'perf)) 'measure)
+                   (t " analyses for higher-order languages"))
+        (hc-append (t "can be ") (tag-pict (t "systematically constructed") 'systematic)
+                   (t " from their semantics."))))))
+
+  (define/staged (thesis-slide stage) #:stages [statement propose-build propose-measure]
+    (with-size 30
+      (in-sawasdee
+       (define ((hilight b) p)
+         (show (colorize (filled-rectangle (pict-width p) (pict-height p)) "yellow") b))
+       (define bg
+         (tagged-shadow-frame
+          (pin-under-tag
+           (pin-under-tag 
+            thesis-pict lt-find 'systematic (hilight (>= stage propose-build)))
+           lt-find 'measure (hilight (= stage propose-measure)))
+          (inset (big (bt "Thesis:")) 10)))
+       (define build-text (big (t "I propose to build and prove")))
+       (define build-arrow
+         (pin-arrow-line 15
+                         (pin-over bg -30 300 build-text)
+                         build-text ct-find
+                         (first (find-tag bg 'systematic)) cb-find
+                         #:start-angle (* 1/3 pi)
+                         #:end-angle (* 2/3 pi)))
+       (match stage
+         [(== statement) bg]
+         [(== propose-build) build-arrow]
+         [(== propose-measure)
+          (define measure-text (big (t "I propose to evaluate")))
+          (pin-arrow-line 15
+                          (pin-over build-arrow 100 -200 measure-text)
+                          measure-text cb-find
+                          (first (find-tag bg 'measure)) ct-find
+                          #:start-angle (* -1/3 pi)
+                          #:end-angle (* -1/2 pi))]))))
 
   (define/staged (temporal stage) #:stages [question horse hors jail]
     (define base (big @t{Temporal properties?}))
@@ -314,7 +351,7 @@
     (slide (big (t "What have I done for HOPA?")))
     (run-stages what-I-did)
     (run-stages essence-slogan)
-    (slide (big (bt "TODO: Example")))
+    (slide (big (bt "TODO?: Example")))
 
     (parameterize ([use-color? #f])
       (slide (a-state))
@@ -358,7 +395,7 @@
       [(== the-reveal)
        (cc-superimpose
         base
-        (tagged-shadow-frame (hc-append @t{CFA2 + } @tt{call/cc} (colorize (small (t " [ICFP 2011] ")) "gray")
+        (tagged-shadow-frame (hc-append @t{CFA2 + } @tt{call/cc } (citation "ICFP 2011")
                                         @t{ is a special case})
                              (inset (shadow (colorize (big (t "Surprise!")) "firebrick") 10 5) 10)))]))
   
@@ -379,24 +416,46 @@
      (blank 50)
      (show (big (t "AAM: break circularity with indirection")) (= stage solution))))
 
-  (define/staged (what-I-did stage) #:stages [all focus]
+  (define (citation txt #:size [size 18])
+     (colorize (with-size size (t (format "[~a]" txt))) "gray"))
+
+  (define/staged (what-I-did stage) #:stages [all built-and-evaluated focus]
+    (define built-pict
+      (in-sawasdee (show (with-size 24 (t "Built, proved and evaluated: 1000x speed-up"))
+                         (= stage built-and-evaluated))))
+    (define base
+      (pin-over
+       (cc-superimpose
+        (vl-append
+         gap-size
+         (colorize @t{Done:} (if (< stage focus) "medium forest green" "gray"))
+         (tag-pict
+          (colorize-if (>= stage focus)
+                       @item[@t{Systematic optimizations } (citation "ICFP 2013")]
+                       "lightgray")
+          'built)
+         (colorize @t{Almost done (not yet true) :} (if (< stage focus) "steel blue" "gray"))
+         @item[@t{Systematic summarization } (citation "HOPA workshop 2013")]
+         ;; Not going to talk about 1NSAs
+         (colorize-if (>= stage focus)
+                      @item[@t{Abstract model of stack introspection } (citation "JFP best of ICFP 2012")]
+                      "lightgray")
+         (colorize @t{Work in progress:} (if (< stage focus) "firebrick" "gray"))
+         @item{Temporal reasoning through contracts}))
+       300 -30
+       built-pict))
     ;; Put "slogan" in a frame without a bottom so we can make it look like
     ;; it's part of the shadow frame containing the slogan
-    (cc-superimpose
-     (vl-append
-      gap-size
-      (colorize @t{Done:} (if (= stage all) "medium forest green" "gray"))
-      (colorize-if (>= stage focus)
-                   @item[@t{Systematic optimizations } (colorize @t{[ICFP 2013]} "gray")]
-                   "lightgray")
-      (colorize @t{Almost done (not yet true) :} (if (= stage all) "steel blue" "gray"))
-      @item[@t{Systematic summarization } (colorize @t{[HOPA 2013]} "gray")]
-      ;; Not going to talk about 1NSAs
-      (colorize-if (>= stage focus)
-                   @item[@t{Abstract model of stack introspection } (colorize @t{[JFP best of ICFP 2012]} "gray")]
-                   "lightgray")
-      (colorize @t{Needs work:} (if (= stage all) "firebrick" "gray"))
-      @item{Temporal reasoning through contracts})))
+    (pin-arrow-line
+     15
+     base
+     built-pict lc-find
+     (first (find-tag base 'built)) (λ (p path) (define-values (x y) (ct-find p path)) (values (- x 50) y))
+     #:alpha (if (= stage built-and-evaluated) 1 0)
+     #:hide-arrowhead? (not (= stage built-and-evaluated))
+     #:start-angle pi
+     #:start-pull 1.2
+     #:end-angle (* -1/3 pi)))
 
   (define/staged (essence-slogan stage) #:stages [items slogan slogan-zoom]
     (define frame-margin 20)
@@ -426,6 +485,7 @@
                             @item{Rederives (polyvariant) CFA2}
                             @item{Allows stack-inspection and GC}
                             @item{New look at first-class control})))
+
     (pin-over-hcenter
      base
      (/ (pict-width base) 2) -50     
@@ -453,13 +513,120 @@
       (blank 900 700)
       (vc-append
        gap-size
-       (big (hc-append (t "Share ") @Mtt{M} (t " and ") @Ξtt{Ξ} (t ",")))
+       (big (hc-append (t "Share ") @σtt{σ} @t{, } @Mtt{M} (t " and ") @Ξtt{Ξ} (t ",")))
        (big (t "Get CFA2 without stack allocation"))    
        (blank 50)
        (show
         (big (hc-append(t "Stack inspection: include more in ") @ctxtt{ctx}))
         (= stage stack-inspection))))
-     (colorize (text "[Essence of summarization]" null 20) "gray")))
+     (citation "Essence of summarization" #:size 20)))
+
+  ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; What do I propose to do for HOPA?
+
+  (define (what-do)
+    (run-stages proposal)
+    (run-stages temporal-contracts)
+    (run-stages TC-semantics)
+    (run-stages TC-negation)
+    (run-stages TC-abstract))
+
+  (define/staged (proposal stage) #:stages [what-do case-study slogan]
+    (cc-superimpose
+     (vc-append gap-size
+                (big (t "What I propose to do for HOPA"))
+                (blank 50)
+                (show (big (t "Case study: Temporal higher-order contracts")) (>= stage case-study)))
+     (show (tagged-shadow-frame
+            (big (vl-append 5 (t "Abstract runtime monitoring")
+                            (t "is software model-checking")))
+            (shadow (colorize (inset (big @t{Slogan}) 10) "steel blue") 10 5)) (= stage slogan))))
+
+  (define/staged (temporal-contracts stage) #:stages [grammar]
+    (vl-append gap-size
+               (production (t "T") (t "T ∪ T") (t "T ∩ T") (t "¬ T") @tt{Any} @tt{Fail}
+                           (t "T · T") (t "T*") (t "ε") (t "pat") (t "〈pat〉T"))
+               (production (t "pat") (tt "v") (t "c(pat, …)") (hc-append (tt "!") (t "pat"))
+                           (call @tt{ref} @tt{x}) (call @tt{bind} @tt{x}) @tt{_})
+               (production (t "c") (tt "call") (tt "return") (tt "cons") (t "…"))))
+
+  (define (deriv E T) (big (hc-append (hb-append (t "∂") (small (t E))) (t T))))
+
+  (define/staged (TC-semantics stage) #:stages [meaning semantics]
+    (big
+     (vc-append gap-size
+                (t "Each ‶event″ steps the temporal contract")
+                (hc-append (show (t "⟦") (= stage semantics)) (deriv "E" "T") (show (t "⟧") (= stage semantics))
+                           (show (hc-append
+                                  @t{ = }
+                                  (braces (t "π : Eπ ∈ ⟦T⟧")))
+                                 (= stage semantics)))
+                (t "∂ standard except matching and negation"))))
+
+  (define/staged (TC-negation stage) #:stages [problematic possible good prefixes problem solution derivative]
+    (define e-meaning
+      (hc-append (t "⟦") @tt{e} (t "⟧")))
+    (big
+     (vc-append gap-size
+                (big @t{Negation is problematic})
+                (pict-cond
+                 [(and (<= possible stage) (< stage solution))
+                  (t "⟦¬ T⟧ = Traces ∖ ⟦T⟧ ?")]
+                 [(>= stage solution)
+                  (vc-append gap-size
+                             (hc-append (t "⟦¬ T⟧ = ")
+                                        (braces @t{ε})
+                                        @t{ ∪ }
+                                        (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π}))
+                             (show (hc-append (deriv "E" "¬ T")
+                                              @t{ = }
+                                              (call @t{ν} (deriv "E" "T"))
+                                              @t{ → }
+                                              @tt{Fail}
+                                              @t{, ¬ } (deriv "E" "T")) (= stage derivative)))]
+                 [else (blank 0)])
+                (pict-cond
+                 [(= stage good) (hc-append e-meaning (t " ∈ ⟦T⟧"))]
+                 [(and (<= prefixes stage) (< stage solution))
+                  (vc-append gap-size
+                             (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)"))
+                             (show (hc-append (it "e.g. ") (t "E ∈ prefixes(⟦¬ E⟧)")) (= stage problem)))]))))
+
+  (define/staged (TC-abstract stage) #:stages [first second]
+    (vl-append gap-size
+               (big @t{Problems remaining in TC analysis:})
+               @item{Abstract derivatives}
+               @subitem{Abstract matching}
+               @subitem{Precise identification (μ, Γ)}
+               @subitem{Weak reference semantics}
+               (show
+                (vl-append gap-size
+                           @item{State explosion}
+                           @subitem{Per-state stores exponential}
+                           @subitem{Solution? Summarization → Sparseness})
+                (= stage second))))
+
+  ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; What's the related work?
+
+  (define (what-related)
+    (slide (big (t "Related Work")))
+    (slide #:title "Systematic analysis constructions"
+           (vc-append gap-size (big (vl-append gap-size
+                                               @item[@t{AAM } (citation "ICFP 2010")]
+                                               @item[@t{Calculational approach } (citation "SAS 2008")]))))
+    (slide #:title "Pushdown higher-order analysis"
+           @item{(introspective) PDCFA}
+           @item{CFA2}
+           @item{HORS})
+    (slide #:title "Temporal properties"
+           (colorize (t "Dynamic:") "firebrick")
+           @item{J-LO}
+           @item{Tracematches}
+           @item[@t{Temporal contracts } (citation "ICFP 2011")]
+           (colorize (t "Static:") "steel blue")
+           @item{Cecil}
+           @item{JPF-LTL}))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; When do I propose to do all this crap?
@@ -486,15 +653,23 @@
      (blank 30)
      @t{Defend in September 2014}))
 
-  (define (run-talk [sections '(intro/why useful wrong done timeline)])
+  (define (run-talk [sections '(intro/why useful wrong done do related timeline/wrapup)])
     (when (memv 'intro/why sections)
       (title)
       (why-hopa))
     (when (memv 'useful sections) (run-stages useful))
     (when (memv 'wrong sections) (whats-wrong))
     (when (memv 'done sections) (what-done))
-    (when (memv 'timeline sections) (timeline))))
+    (when (memv 'do sections) (what-do))
+    (when (memv 'related sections) (what-related))
+    (when (memv 'timeline/wrapup sections)
+      (timeline)
+      (slide (pin-over-hcenter
+              thesis-pict
+              (/ (pict-width thesis-pict) 2) 300
+              (parameterize ([current-main-font "Respective Slanted"])
+               (with-size 110 (t "Thank You"))))))))
 
 (module+ main
   (require (submod ".." slide-deck))
-  (run-talk '(wrong)))
+  (run-talk))
