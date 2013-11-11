@@ -4,7 +4,7 @@
          pict/code
          slideshow-helpers/picts
          (for-syntax racket/private/norm-define racket/list)
-         "../utils/poppler-main.rkt"
+         talk-utils/poppler-main
          unstable/gui/ppict
          syntax/parse/define
          slideshow/flash
@@ -12,12 +12,12 @@
          racket/gui/base
          scheme/runtime-path)
 
-(define-runtime-path logo-path "../utils/prl-logo.png")
+(define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
 (define-runtime-path jail-path "jail.png")
 (define-runtime-path horse-path "horse-macro.png")
 (define-runtime-path prohibited-path "prohibited.pdf")
-(define-runtime-path check-path "../utils/checkmark.jpg") ;; 196 x 481
-(define-runtime-path xmark-path "../utils/xmark.png") ;; 738 x 488
+(define check-path (collection-file-path "checkmark.jpg" "talk-utils")) ;; 196 x 481
+(define xmark-path (collection-file-path "xmark.png" "talk-utils")) ;; 738 x 488
 
 (define-runtime-path js-path "logo_JavaScript.png")
 (define-runtime-path racket-path "racket-logo.png")
@@ -140,9 +140,9 @@
 
 (module+ slide-deck
   (require (submod ".." stages)
-           (submod "../icfp2013/semantics.rkt" slide-deck)
-           "../icfp2013/color-scheme.rkt"
-           (only-in "../icfp2013/pict-helpers.rkt"
+           (submod icfp2013-talk/semantics slide-deck)
+           icfp2013-talk/color-scheme
+           (only-in icfp2013/pict-helpers
                     join-one braces nstruct production expr call tuple ntuple)
            (submod ".." pict-utils))
   (provide run-talk)

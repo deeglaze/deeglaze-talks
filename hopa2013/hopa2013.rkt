@@ -47,7 +47,7 @@ Second part of the conversation: concrete makes this easy [demo?]
   (parameterize ([current-font-size 28])
     (code e ...)))
 
-(define-runtime-path logo-path "../utils/prl-logo.png")
+(define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
 (define-runtime-path pdcfa-path "pdcfafig-small.png")
 (define-runtime-path pdcfa-path2 "sprout.png")
 (define-runtime-path pdcfa-path3 "addpush.png")

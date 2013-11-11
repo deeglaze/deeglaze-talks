@@ -3,7 +3,7 @@
 (require unstable/gui/slideshow
          rsvg
          slideshow-helpers/picts
-         "../utils/poppler-main.rkt"
+         talk-utils/poppler-main ;; package
          file/convertible
          unstable/gui/ppict
          net/sendurl
@@ -58,7 +58,7 @@
 (define-runtime-path grinder-small-path "grinder_small.png")
 (define-runtime-path grinderp-path "grinder-transparent_small.png")
 (define-runtime-path meat-path "super_meat_boy_by_mrcbleck-d5tsgeo_small.png")
-(define-runtime-path logo-path "../utils/prl-logo.png")
+(define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
 (define-runtime-path redex-path "plt-redex.jpeg")
 (define-runtime-path tweak-path "tweak.png")
 (define-runtime-path map-path "map.png")
