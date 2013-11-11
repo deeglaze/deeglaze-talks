@@ -142,7 +142,7 @@
   (require (submod ".." stages)
            (submod icfp2013-talk/semantics slide-deck)
            icfp2013-talk/color-scheme
-           (only-in icfp2013/pict-helpers
+           (only-in icfp2013-talk/pict-helpers
                     join-one braces nstruct production expr call tuple ntuple)
            (submod ".." pict-utils))
   (provide run-talk)
