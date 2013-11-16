@@ -3,14 +3,16 @@
          racket/splicing
          pict/code
          slideshow-helpers/picts
-         (for-syntax racket/private/norm-define racket/list)
          talk-utils/poppler-main
          unstable/gui/ppict
          syntax/parse/define
          slideshow/flash
          slideshow/play
          racket/gui/base
-         scheme/runtime-path)
+         scheme/runtime-path
+         "radar.rkt"
+         (only-in plot/utils polar->cartesian)
+         (only-in plot/private/common/draw pen-colors))
 
 (define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
 (define-runtime-path jail-path "jail.png")
@@ -67,83 +69,13 @@
      (sub1 (+ frame-sep frame-margin)) (+ (- (pict-height top-frame)) frame-margin 1)
      top-frame)))
 
-(module+ stages
-  (provide define/staged run-stages)
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;; Convenience syntax for defining staged slides
-  (struct anim-info (which-stage skip-first? skip-last? steps delay name layout))
-  (struct staged-slide (stage->pict title num-stages animation))
-  (define-syntax (define/staged stx)
-    (syntax-parse stx
-      [(_ header (~or (~once (~or (~seq #:num-stages num:expr) (~seq #:stages [stage-names:id ...])))
-                      (~optional (~seq #:title title))
-                      ;; TODO?: allow more than one animation in a staged fn?
-                      (~optional (~seq #:anim-at anim-at:expr))
-                      (~optional (~and #:skip-first? skip-first))
-                      (~optional (~and #:skip-last? skip-last))
-                      (~optional (~seq #:steps steps:expr))
-                      (~optional (~seq #:delay delay:expr))
-                      (~optional (~seq #:name name:expr))
-                      (~optional (~seq #:layout layout:expr))) ...
-                      body ...+)
-       #:fail-unless (if (or (attribute skip-first)
-                             (attribute skip-last)
-                             (attribute steps)
-                             (attribute delay))
-                         (attribute anim-at)
-                         #t)
-       "Can only be given when an animation"
-       (define num-stages* (if (attribute num)
-                               #'num
-                               (length (syntax->list #'(stage-names ...)))))
-       (define-values (id rhs) (normalize-definition #'(define header body ...) #'lambda #t #f))
-       (with-syntax ([num-stages num-stages*])
-         (quasisyntax/loc stx 
-           (splicing-let-values (#,@(if (attribute stage-names)
-                                        #`([(stage-names ...) (values #,@(range num-stages*))])
-                                        #'()))
-             (define #,id 
-               (staged-slide
-                (letrec ([#,id #,rhs]) #,id)
-                #,(if (attribute title) #'title #'#f)
-                num-stages
-                #,(if (attribute anim-at)
-                      #`(anim-info anim-at
-                                   #,(syntax? (attribute skip-first))
-                                   #,(syntax? (attribute skip-last))
-                                   #,(if (attribute steps) #'steps #'10)
-                                   #,(if (attribute delay) #'delay #'0.05)
-                                   #,(cond [(attribute name) #'name]
-                                           [(attribute title) #'title]
-                                           [else #'#f])
-                                   #,(if (attribute layout) #'layout #''auto))
-                      #'#f))))))]))
-
-  (define/match (run-stages v)
-    [((staged-slide fn title num anim))
-     (define simple (λ (i) (slide #:title title (fn i))))
-     (define do
-       (match anim
-         [(anim-info at-stage skip-first? skip-last? steps delay name layout)
-          (λ (i) (cond [(= i at-stage)
-                        (play (fn i)
-                              #:steps steps
-                              #:delay delay
-                              #:name name
-                              #:layout layout
-                              #:skip-first? skip-first?
-                              #:title title)
-                        (unless skip-last? (slide ((fn i) 1.0)))]
-                       [else (simple i)]))]
-         [_ simple]))
-     (for ([i num]) (do i))]))
-
 (module+ slide-deck
-  (require (submod ".." stages)
+  (require slideshow-helpers/slide
            (submod icfp2013-talk/semantics slide-deck)
            icfp2013-talk/color-scheme
+           (only-in (submod hopa2013-talk/hopa2013 slide-deck) concrete)
            (only-in icfp2013-talk/pict-helpers
-                    join-one braces nstruct production expr call tuple ntuple)
+                    join-one braces nstruct production expr call tuple ntuple parens)
            (submod ".." pict-utils))
   (provide run-talk)
   (define (title)
@@ -173,10 +105,10 @@
     (slide (big @t{HOPA is a class of})
            @item{online,}
            @item{computable,}
-           @item{abstract interpretations,}
+           @item{abstract interpretations}
            @item{of higher-order languages}))
 
-  (define/staged (type-jail stage) #:num-stages 3
+  (define/staged type-jail #:num-stages 3
     (define base-types (with-size 150 (t "Types")))
     (define type-jail (cc-superimpose base-types (bitmap jail-path)))
     (define type-strikeout (cc-superimpose base-types (scale (page->pict prohibited-path) 2.5)))
@@ -185,7 +117,7 @@
       [1 type-jail]
       [2 type-strikeout]))
 
-  (define/staged (universal stage) #:stages [text collage]
+  (define/staged universal #:stages [text collage]
     (define base (big @t{HOPA is universal}))
     (define (g p) (show p (>= stage collage)))
     ;; Example languages (Erlang, JS, Dalvik, Coq, Racket)
@@ -205,9 +137,10 @@
      -120 -75
      (g (scale (bitmap js-path) 0.1))))
 
-  (define/staged (useful stage)
+  (define/staged useful
     #:stages [base anim to-name-a-few]
     #:anim-at anim
+    #:skip-first
     #:steps 30
     (define big-font 28)
     (define base-pict (big @t{HOPA is useful}))
@@ -277,17 +210,69 @@
 
   (define (whats-wrong)
     (slide (big (t "What's wrong with HOPA?")))
-    (slide #:title "Intrinsically"
-           (vc-append (blank 100)
-                      @t{Soundness}
-                      (hc-append @t{Speed} (blank 400) @t{Precision})))
-    (slide #:title "Extrinsically"
-           (vc-append (blank 100)
-                      @t{Maintainability}
-                      (hc-append @t{Designability} (blank 400) @t{Grokability})))
+    (run-stages intrinsic/extrinsic)
     (run-stages temporal)
     ;; AAAaaand thesis
     (run-stages thesis-slide))
+
+  (define/staged intrinsic/extrinsic
+    #:stages [intrinsic extrinsic 0CFA HORS JPF AAM]
+    #:title (with-size 42
+              (hc-append (t "Intrinsically") (show (t " and Extrinsically") (>= stage extrinsic))))
+    (define δ (/ (* -2 pi) 6))
+    (define θs (make-vector 6))
+    (define extent 300)
+    (for/fold ([p 0+0i]) ([i 6])
+      (vector-set! θs i (* i δ)))
+    (define-values (point-l point-t)
+      (for/fold ([l +inf.0] [t +inf.0]) ([θ (in-vector θs)])
+        (match-define (vector x y) (polar->cartesian θ extent))
+        (values (min l x) (min t y))))
+    (define points (for/list ([θ (in-vector θs)])
+                     (match-define (vector x y) (polar->cartesian θ extent))
+                     (list (- x point-l) (- y point-t))))
+    (define qualities (append (list @t{Sound} @t{Fast} @t{Precise})
+                              (for/list ([q (in-list (list @t{Maintainable} @t{Design Ease} @t{Grokable}))])
+                                (show q (>= stage extrinsic)))))
+    (define graphs
+      `(("Set-based 0CFA" ,0CFA .
+         #((sound . 5) (fast . 4) (precise . 2) (maintainable . 2) (design . 2) (grokable . 3)))
+        ("HORS" ,HORS .
+         #((sound . 4) (fast . 3) (precise . 4) (maintainable . 2) (design . 1) (grokable . 1)))
+        ("JPF" ,JPF .
+         #((sound . 2) (fast . 3) (precise . 4) (maintainable . 3) (design . 3) (grokable . 2)))
+        ("AAM" ,AAM .
+         #((sound . 5) (fast . 1) (precise . 3) (maintainable . 4) (design . 5) (grokable . 5)))))
+    (define dimensions '(sound fast precise maintainable design grokable))
+    (pin-over
+     (pin-under
+      (panorama
+       (for/fold ([p (blank)])
+           ([point (in-list points)]
+            [quality (in-list qualities)]
+            [dim (in-list dimensions)])
+         (match-define (list x y) point)
+         (define x-offset
+           (if (eq? dim 'maintainable)
+               (- 50)
+               0))
+         (pin-over p (+ x x-offset) y quality)))
+      225 80
+      (show (bitmap
+             (send
+              (radar-plot (take (map cddr graphs) (max 1 (- stage extrinsic)))
+                          #:dimensions dimensions)
+              get-bitmap))
+            (>= stage 0CFA)))
+     -110 -40
+     (show
+      (shadow-frame
+       (apply vl-append gap-size
+              (for/list ([g (in-list graphs)]
+                         [i (in-naturals 1)])
+                (show (colorize (t (car g)) (vector-ref pen-colors i))
+                      (>= stage (cadr g))))))
+      (>= stage 0CFA))))
 
   (define-syntax-rule (in-sawasdee . body) (parameterize ([current-main-font "Sawasdee"]) . body))
 
@@ -301,7 +286,7 @@
         (hc-append (t "can be ") (tag-pict (t "systematically constructed") 'systematic)
                    (t " from their semantics."))))))
 
-  (define/staged (thesis-slide stage) #:stages [statement propose-build propose-measure]
+  (define/staged thesis-slide #:stages [statement propose-build propose-measure]
     (with-size 30
       (in-sawasdee
        (define ((hilight b) p)
@@ -333,7 +318,7 @@
                           #:start-angle (* -1/3 pi)
                           #:end-angle (* -1/2 pi))]))))
 
-  (define/staged (temporal stage) #:stages [question horse hors jail]
+  (define/staged temporal #:stages [question horse hors jail]
     (define base (big @t{Temporal properties?}))
     (define good-bad
       (shadow-frame (tabular (list (big @t{Simply-typed tree grammar}) (scale (bitmap check-path) 0.2))
@@ -351,7 +336,7 @@
     (slide (big (t "What have I done for HOPA?")))
     (run-stages what-I-did)
     (run-stages essence-slogan)
-    (slide (big (bt "TODO?: Example")))
+    (run-stages concrete)
 
     (parameterize ([use-color? #f])
       (slide (a-state))
@@ -379,7 +364,7 @@
     ;; how 1st class control generalizes CFA2 (well, not /how/, but describes the mechanism)
     (run-stages big-jump))
 
-  (define/staged (big-jump stage) #:stages [big-rule the-reveal]
+  (define/staged big-jump #:stages [big-rule the-reveal]
     (define base
       (vc-append gap-size
                  (big (t "In the context of"))
@@ -399,7 +384,7 @@
                                         @t{ is a special case})
                              (inset (shadow (colorize (big (t "Surprise!")) "firebrick") 10 5) 10)))]))
   
-  (define/staged (kont-values-problem stage) #:stages [see arrows solution]
+  (define/staged kont-values-problem #:stages [see arrows solution]
     (define store-pict
       (big (join-one (tag-pict @σtt{σ} 'first)
                      @idtt{a}
@@ -419,7 +404,7 @@
   (define (citation txt #:size [size 18])
      (colorize (with-size size (t (format "[~a]" txt))) "gray"))
 
-  (define/staged (what-I-did stage) #:stages [all built-and-evaluated focus]
+  (define/staged what-I-did #:stages [all built-and-evaluated focus]
     (define built-pict
       (in-sawasdee (show (with-size 24 (t "Built, proved and evaluated: 1000x speed-up"))
                          (= stage built-and-evaluated))))
@@ -435,11 +420,11 @@
                        "lightgray")
           'built)
          (colorize @t{Almost done (not yet true) :} (if (< stage focus) "steel blue" "gray"))
-         @item[@t{Systematic summarization } (citation "HOPA workshop 2013")]
          ;; Not going to talk about 1NSAs
          (colorize-if (>= stage focus)
                       @item[@t{Abstract model of stack introspection } (citation "JFP best of ICFP 2012")]
                       "lightgray")
+         @item[@t{Systematic summarization } (citation "HOPA workshop 2013")]
          (colorize @t{Work in progress:} (if (< stage focus) "firebrick" "gray"))
          @item{Temporal reasoning through contracts}))
        300 -30
@@ -457,7 +442,7 @@
      #:start-pull 1.2
      #:end-angle (* -1/3 pi)))
 
-  (define/staged (essence-slogan stage) #:stages [items slogan slogan-zoom]
+  (define/staged essence-slogan #:stages [items slogan slogan-zoom]
     (define frame-margin 20)
     (define frame-sep 5)
     (define the-slogan
@@ -507,7 +492,7 @@
        #:end-angle (* 1/2 pi))
       (>= stage slogan))))
 
-  (define/staged (summaries-cfa2 stage) #:stages [cfa2 stack-inspection]
+  (define/staged summaries-cfa2 #:stages [cfa2 stack-inspection]
     (rb-superimpose
      (cc-superimpose
       (blank 900 700)
@@ -527,11 +512,12 @@
   (define (what-do)
     (run-stages proposal)
     (run-stages temporal-contracts)
+    (run-stages TC-example)
     (run-stages TC-semantics)
     (run-stages TC-negation)
     (run-stages TC-abstract))
 
-  (define/staged (proposal stage) #:stages [what-do case-study slogan]
+  (define/staged proposal #:stages [what-do case-study slogan]
     (cc-superimpose
      (vc-append gap-size
                 (big (t "What I propose to do for HOPA"))
@@ -542,17 +528,62 @@
                             (t "is software model-checking")))
             (shadow (colorize (inset (big @t{Slogan}) 10) "steel blue") 10 5)) (= stage slogan))))
 
-  (define/staged (temporal-contracts stage) #:stages [grammar]
+  (define/staged temporal-contracts #:stages [grammar expression re-entrance] #:title "What is a Temporal Contract?"
     (vl-append gap-size
                (production (t "T") (t "T ∪ T") (t "T ∩ T") (t "¬ T") @tt{Any} @tt{Fail}
                            (t "T · T") (t "T*") (t "ε") (t "pat") (t "〈pat〉T"))
                (production (t "pat") (tt "v") (t "c(pat, …)") (hc-append (tt "!") (t "pat"))
-                           (call @tt{ref} @tt{x}) (call @tt{bind} @tt{x}) @tt{_})
-               (production (t "c") (tt "call") (tt "return") (tt "cons") (t "…"))))
+                           (call @tt{ref} @tt{x}) #;(tt "(== x)")
+                           (call @tt{bind} @tt{x}) #;(tt "x")
+                           @tt{_})
+               (production (t "c") (tt "call") (tt "return") (tt "cons") (t "…"))
+               (blank-line)
+               (show (hc-append (t "Or some nicer language of patterns, ") (it "e.g., ") (t "Racket's"))
+                     (>= stage expression))
+               (show (hc-append (code (? contracted-fn)) (t " forbid monitor re-entrance"))
+                     (>= stage re-entrance))))
 
-  (define (deriv E T) (big (hc-append (hb-append (t "∂") (small (t E))) (t T))))
+  (define/staged TC-example #:stages [fn scontract tcontract-upto tcontract-full]
+    #:title "Reader/writer example"
+    (define to-negate
+      (with-size 20
+        (show (code (· ...
+                       〈(return c-f (list (bind read) (bind write) (bind close)))〉
+                       (· (* (! (return (ref close) _)))
+                          (call (ref close))
+                          ...
+                          #,(show (code (∪ (call (ref read)) (call (ref write) _) (call (ref close))))
+                                  (>= stage tcontract-full)))))
+              (>= stage tcontract-upto))))
+    (define neg (with-size 20
+                  (if (<= stage tcontract-upto)
+                      (vl-append 2
+                                 (ghost (tt "(¬"))
+                                 (hc-append (ghost (tt "(")) to-negate (ghost (tt ")"))))
+                      (code (¬
+                             #,to-negate)))))
+    (vc-append gap-size               
+               (with-size 20
+                (code (define (f path)
+                        (define-values (i o) (open-input-output-port path))
+                        (list (thunk (read i))
+                              (λ (d) (write d o))
+                              (thunk (close-input-port i)
+                                     (close-output-port o))))
+                      ;; TODO: Stage, use sugar for define, shared
+                      #,(show
+                         (code
+                          (rec/c c-f
+                            (tmon 'pos 'neg 'contract
+                                  (path? . -> . (list/c (-> any/c) (any/c . -> . void?) (-> void?)))
+                                  #,neg
+                                  f)))
+                         (>= stage scontract))))))
 
-  (define/staged (TC-semantics stage) #:stages [meaning semantics]
+  (define (deriv E T #:call? [call? #f])
+    (big (hc-append (hb-append (t "∂") (small (t E))) (if call? (parens (t T)) (t T)))))
+
+  (define/staged TC-semantics #:stages [meaning semantics]
     (big
      (vc-append gap-size
                 (t "Each ‶event″ steps the temporal contract")
@@ -563,36 +594,57 @@
                                  (= stage semantics)))
                 (t "∂ standard except matching and negation"))))
 
-  (define/staged (TC-negation stage) #:stages [problematic possible good prefixes problem solution derivative]
+  (define (list-pict-if guard then else)
+    (let build ([ghosted (if guard else then)] [picts (if guard then else)])
+      (match* (ghosted picts)
+        [('() '()) '()]
+        [((cons g gs) (cons p ps)) (cons (cc-superimpose (ghost g) p) (build gs ps))]
+        [((? pair?) '()) (map ghost ghosted)]
+        [('() (? pair?)) picts])))
+
+  (define/staged TC-negation #:stages [problematic possible good prefixes problem solution derivative
+                                               characterizing interesting]
+    #:title (big @t{Negation is problematic})
     (define e-meaning
       (hc-append (t "⟦") @tt{e} (t "⟧")))
     (big
-     (vc-append gap-size
-                (big @t{Negation is problematic})
-                (pict-cond
-                 [(and (<= possible stage) (< stage solution))
-                  (t "⟦¬ T⟧ = Traces ∖ ⟦T⟧ ?")]
-                 [(>= stage solution)
-                  (vc-append gap-size
-                             (hc-append (t "⟦¬ T⟧ = ")
-                                        (braces @t{ε})
-                                        @t{ ∪ }
-                                        (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π}))
-                             (show (hc-append (deriv "E" "¬ T")
-                                              @t{ = }
-                                              (call @t{ν} (deriv "E" "T"))
-                                              @t{ → }
-                                              @tt{Fail}
-                                              @t{, ¬ } (deriv "E" "T")) (= stage derivative)))]
-                 [else (blank 0)])
-                (pict-cond
-                 [(= stage good) (hc-append e-meaning (t " ∈ ⟦T⟧"))]
-                 [(and (<= prefixes stage) (< stage solution))
-                  (vc-append gap-size
-                             (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)"))
-                             (show (hc-append (it "e.g. ") (t "E ∈ prefixes(⟦¬ E⟧)")) (= stage problem)))]))))
+     (apply vc-append
+            gap-size
+            (show
+             (hc-append (t "⟦¬ T⟧ = ")
+                        (pict-cond
+                         [(and (<= possible stage) (< stage solution))
+                          (hc-append @t{Traces ∖ ⟦T⟧ ? } (citation "ICFP 2011"))]
+                         [else
+                          (hc-append
+                           (braces @t{ε})
+                           @t{ ∪ }
+                           (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π}))]))
+             (>= stage possible))
+            (append
+             (list-pict-if
+              (= stage good)
+              (list (hc-append e-meaning (t " ∈ ⟦T⟧")))
+              (list
+               (show (hc-append (deriv "E" "¬ T" #:call? #t)
+                                @t{ = }
+                                (call @t{ν} (deriv "E" "T"))
+                                @t{ → }
+                                @tt{Fail}
+                                @t{, } (call @t{¬} (deriv "E" "T"))) (>= stage derivative)))) 
+             (list-pict-if
+              (and (<= prefixes stage) (< stage solution))
+              (list
+               (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)"))
+               (show (hc-append (it "e.g. ") (t "E ∈ prefixes(⟦¬ E⟧)")) (= stage problem)))
+              (list
+               (show (t "⟦¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∈ F⟦T⟧}") (>= stage characterizing))
+               (show (t "⟦¬ ¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∉ F⟦T⟧}") (>= stage characterizing))))
+             (list
+              (show (t "Interesting consequence:") (= stage interesting))
+              (show (t "⟦¬ ¬ T⟧ ≠ ⟦T⟧ but ⟦¬ ¬ ¬ ¬ T⟧ = ⟦¬ ¬ T⟧") (= stage interesting)))))))
 
-  (define/staged (TC-abstract stage) #:stages [first second]
+  (define/staged TC-abstract #:stages [first second]
     (vl-append gap-size
                (big @t{Problems remaining in TC analysis:})
                @item{Abstract derivatives}
@@ -611,14 +663,24 @@
 
   (define (what-related)
     (slide (big (t "Related Work")))
+    (slide #:title "Sound analysis performance engineering"
+           @item[@t{Astrée } (citation "FMSD 2009")]
+           @item[@t{Sparrow/Airac } (citation "ASPLAS 2009/2011, SPE 2010, VMCAI 2011, PLDI 2012")])
     (slide #:title "Systematic analysis constructions"
-           (vc-append gap-size (big (vl-append gap-size
-                                               @item[@t{AAM } (citation "ICFP 2010")]
-                                               @item[@t{Calculational approach } (citation "SAS 2008")]))))
-    (slide #:title "Pushdown higher-order analysis"
-           @item{(introspective) PDCFA}
-           @item{CFA2}
-           @item{HORS})
+           (vc-append gap-size
+                      (big (vl-append gap-size
+                                      @item[@t{AAM } (citation "ICFP 2010")]
+                                      @item[@t{Calculational approach } (citation "SAS 2008")]
+                                      @item[@t{Calculational design } (citation "Marktoberdorf 1998")]
+                                      @item[@t{Pretty-big-step Certified AI} (citation "JFLA 2014")]))))
+    (slide #:title "Pushdown analysis"
+           (colorize (t "Higher-order:") "steel blue")
+           @item[@t{(introspective) PDCFA } (citation "Scheme Workshop 2010, ICFP 2012")]
+           @item[@t{CFA2 } (citation "ESOP 2010, ICFP 2011")]
+           @item[@t{HORS } (citation "LICS 2006, PPDP 2009, POPL 2009, PLDI 2011, ...")]
+           (colorize (t "First-order:") "firebrick")
+           @item[@t{LTL with regular valuations } (citation "TACS 2001")]
+           @item[@t{Weighted pushdown automata } (citation "SAS 2003, CAV 2006")])
     (slide #:title "Temporal properties"
            (colorize (t "Dynamic:") "firebrick")
            @item{J-LO}
@@ -653,12 +715,22 @@
      (blank 30)
      @t{Defend in September 2014}))
 
-  (define (run-talk [sections '(intro/why useful wrong done do related timeline/wrapup)])
+  (define/staged outline #:stages [bullets joke] #:title "Talk Outline"
+    (vl-append gap-size
+     @item{What have I done?}
+     @item{What will I do?}
+     @item{What have others done?}
+     @item{What is my timeline?}
+     (blank-line)
+     (show (t "What is the capital of Assyria?") (= stage joke))))
+
+  (define (run-talk [sections '(intro/why useful wrong outline done do related timeline/wrapup)])
     (when (memv 'intro/why sections)
       (title)
       (why-hopa))
     (when (memv 'useful sections) (run-stages useful))
     (when (memv 'wrong sections) (whats-wrong))
+    (when (memv 'outline sections) (run-stages outline))
     (when (memv 'done sections) (what-done))
     (when (memv 'do sections) (what-do))
     (when (memv 'related sections) (what-related))
@@ -672,4 +744,4 @@
 
 (module+ main
   (require (submod ".." slide-deck))
-  (run-talk))
+  (run-talk '(done)))

@@ -1,14 +1,16 @@
 #lang at-exp slideshow
-(require unstable/gui/slideshow
+(require (except-in unstable/gui/slideshow stage)
          unstable/gui/ppict
-         unstable/gui/pict
+         (except-in unstable/gui/pict stage)
          racket/gui/base
          slideshow/code
+         slideshow-helpers/slide
          "pict-helpers.rkt")
 
 (module+ slide-deck
   (provide call/ret)
-  (define (call/ret stage pushdown?)
+  (define/staged (call/ret pushdown?) #:num-stages 9
+    #:title (if pushdown? "Pushdown" "Regular")
     ;; These have to be on the same line for formatting reasons
     (define tagged-define
       (code (define #,(tag-pict (code (id #,(tag-pict (code x) 'bind))) 'id) #,(tag-pict (code x) 'body))))
@@ -105,18 +107,17 @@
     (define focused (pin-under-tag arrowed lt-find (vector-ref focus stage)
                                    (λ (p) (filled-rounded-rectangle-frame
                                            p
-                                           #:bgcolor "yellow"))))
+                                           #:color "yellow"))))
 
-    (slide #:title (if pushdown? "Pushdown" "Regular")
-           (vl-append 100
-                      (pin-over focused
-                                350 -140 (vl-append @t{  Store:}
-                                                    staged-store))
-                      (show (if pushdown?
-                                @t{Result: true}
-                                @t{Result: true or false}) (> stage 7))))))
+    (vl-append 100
+               (pin-over focused
+                         350 -140 (vl-append @t{  Store:}
+                                             staged-store))
+               (show (if pushdown?
+                         @t{Result: true}
+                         @t{Result: true or false}) (> stage 7)))))
 
 (module+ main
   (require (submod ".." slide-deck))
-  (for ([i 9]) (call/ret i #f))
-  (for ([i 9]) (call/ret i #t)))
+  (run-stages (call/ret #f))
+  (run-stages (call/ret #t)))
