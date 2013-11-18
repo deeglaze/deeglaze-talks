@@ -3,11 +3,11 @@
          racket/splicing
          pict/code
          slideshow-helpers/picts
-         talk-utils/poppler-main
          unstable/gui/ppict
          syntax/parse/define
          slideshow/flash
          slideshow/play
+         file/convertible
          racket/gui/base
          scheme/runtime-path
          "radar.rkt"
@@ -18,6 +18,7 @@
 (define-runtime-path jail-path "jail.png")
 (define-runtime-path horse-path "horse-macro.png")
 (define-runtime-path prohibited-path "prohibited.pdf")
+(define-runtime-path prohibited-png-path "prohibited.png")
 (define check-path (collection-file-path "checkmark.jpg" "talk-utils")) ;; 196 x 481
 (define xmark-path (collection-file-path "xmark.png" "talk-utils")) ;; 738 x 488
 
@@ -29,6 +30,19 @@
 (define bg-slide-assembler
   (lambda (title sep content)
     (inset content (- margin) (- margin) 0 0)))
+
+(define use-pdf? #f)
+(define (scale-pdf-or-png pdf-path factor png-path)
+  (cond [use-pdf?
+         (define pict
+           (scale ((dynamic-require (collection-file-path "poppler-main.rkt" "talk-utils") 'page->pict)
+                   pdf-path)
+                  factor))
+         (with-output-to-file
+             prohibited-png-path #:exists 'replace
+             (λ () (write-bytes (convert (pict->bitmap pict) 'png-bytes))))
+         pict]
+        [else (bitmap png-path)]))
 
 (current-main-font "Linux Libertine Capitals O")
 
@@ -111,7 +125,9 @@
   (define/staged type-jail #:num-stages 3
     (define base-types (with-size 150 (t "Types")))
     (define type-jail (cc-superimpose base-types (bitmap jail-path)))
-    (define type-strikeout (cc-superimpose base-types (scale (page->pict prohibited-path) 2.5)))
+    (define strikeout
+      (scale-pdf-or-png prohibited-path 2.5 prohibited-png-path))
+    (define type-strikeout (cc-superimpose base-types strikeout))
     (match stage
       [0 base-types]
       [1 type-jail]
@@ -744,4 +760,4 @@
 
 (module+ main
   (require (submod ".." slide-deck))
-  (run-talk '(done)))
+  (run-talk '(intro/why)))
