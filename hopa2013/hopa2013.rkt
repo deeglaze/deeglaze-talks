@@ -102,7 +102,9 @@ Second part of the conversation: concrete makes this easy [demo?]
                #,(tag-pict (scode (+ n1 n2)) 'body))))
     (define (highlight-tagged whole tag)
       (pin-under-tag whole lt-find tag 
-                     (λ (tagged) (colorize (filled-rounded-rectangle-frame tagged) "yellow"))))
+                     (λ (tagged) (filled-rounded-rectangle-frame tagged
+                                                                 #:border-width 3
+                                                                 #:border-color "firebrick"))))
 
 
     (define memo-table

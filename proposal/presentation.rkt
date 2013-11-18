@@ -99,7 +99,7 @@
         (bitmap logo-path)
         (vc-append
          (big (bold (para #:align 'center "Systematic Constructions for")))
-         (big (bold (para #:align 'center "Higher-Order Program Analysis")))
+         (big (bold (para #:align 'center "Higher-Order Program Analyses")))
          (blank-line)
          (para #:align 'center @bt{J. Ian Johnson})
          (blank-line)
@@ -232,7 +232,7 @@
     (run-stages thesis-slide))
 
   (define/staged intrinsic/extrinsic
-    #:stages [intrinsic extrinsic 0CFA HORS JPF AAM]
+    #:stages [intrinsic extrinsic 0CFA HORS JPF AAM mine]
     #:title (with-size 42
               (hc-append (t "Intrinsically") (show (t " and Extrinsically") (>= stage extrinsic))))
     (define δ (/ (* -2 pi) 6))
@@ -258,37 +258,43 @@
         ("JPF" ,JPF .
          #((sound . 2) (fast . 3) (precise . 4) (maintainable . 3) (design . 3) (grokable . 2)))
         ("AAM" ,AAM .
-         #((sound . 5) (fast . 1) (precise . 3) (maintainable . 4) (design . 5) (grokable . 5)))))
+         #((sound . 5) (fast . 1) (precise . 3) (maintainable . 4) (design . 5) (grokable . 5)))
+        ("Mine" ,mine .
+         #((sound . 5) (fast . 3.75) (precise . 3.75) (maintainable . 4.25) (design . 5) (grokable . 5)))))
     (define dimensions '(sound fast precise maintainable design grokable))
     (pin-over
-     (pin-under
-      (panorama
-       (for/fold ([p (blank)])
-           ([point (in-list points)]
-            [quality (in-list qualities)]
-            [dim (in-list dimensions)])
-         (match-define (list x y) point)
-         (define x-offset
-           (if (eq? dim 'maintainable)
-               (- 50)
-               0))
-         (pin-over p (+ x x-offset) y quality)))
-      225 80
-      (show (bitmap
-             (send
-              (radar-plot (take (map cddr graphs) (max 1 (- stage extrinsic)))
-                          #:dimensions dimensions)
-              get-bitmap))
-            (>= stage 0CFA)))
-     -110 -40
-     (show
-      (shadow-frame
-       (apply vl-append gap-size
-              (for/list ([g (in-list graphs)]
-                         [i (in-naturals 1)])
-                (show (colorize (t (car g)) (vector-ref pen-colors i))
-                      (>= stage (cadr g))))))
-      (>= stage 0CFA))))
+     (pin-over
+      (pin-under
+       (panorama
+        (for/fold ([p (blank)])
+            ([point (in-list points)]
+             [quality (in-list qualities)]
+             [dim (in-list dimensions)])
+          (match-define (list x y) point)
+          (define x-offset
+            (if (eq? dim 'maintainable)
+                (- 50)
+                0))
+          (pin-over p (+ x x-offset) y quality)))
+       225 80
+       (show (bitmap
+              (send
+               (radar-plot (take (map cddr graphs) (max 1 (- stage extrinsic)))
+                           #:dimensions dimensions)
+               get-bitmap))
+             (>= stage 0CFA)))
+      -110 -40
+      (show
+       (shadow-frame
+        (apply vl-append gap-size
+               (for/list ([g (in-list (take graphs 4))]
+                          [i (in-naturals 1)])
+                 (show (colorize (t (car g)) (vector-ref pen-colors i))
+                       (>= stage (cadr g))))))
+       (>= stage 0CFA)))
+     -110 360
+     (show (colorize (big (t "My work")) (vector-ref pen-colors 5))
+           (>= stage mine))))
 
   (define-syntax-rule (in-sawasdee . body) (parameterize ([current-main-font "Sawasdee"]) . body))
 
@@ -352,7 +358,8 @@
     (slide (big (t "What have I done for HOPA?")))
     (run-stages what-I-did)
     (run-stages essence-slogan)
-    (run-stages concrete)
+    (parameterize ([current-main-font "Andale Mono"])
+     (run-stages concrete))
 
     (parameterize ([use-color? #f])
       (slide (a-state))
@@ -371,12 +378,20 @@
 
     (run-stages kont-values-problem)
 
-    (slide (big (t "New environment \"closes\" heap"))
+    (define γ (big (ctxtt "\u03b3")))
+    (define hat (big (ctxtt " \u0302")))
+    (define γ̂
+     (panorama
+      (pin-over γ (- (/ (pict-width γ) 2) (/ (pict-width hat) 2)
+                         14 #| icky fudge factor |#)
+                3 #| another icky fudge factor |# hat)))
+    
+    (slide (big (t "New environment ‶closes″ heap"))
            (big (hc-append (t "Control closure ") @tt{χ} (t " : ") (addr @t{Addr}) @tt{ → } (t "℘(Store)")))
            'next
            (big (t "Context = CContext ∪ SContext"))
-           (big (production (hc-append @ctxtt{Γ} (t " ∈ CContext")) (tuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ})))
-           (big (production (hc-append @ctxtt{Γ̂}(t " ∈ SContext")) (tuple (expr @tt{e}) @idtt{ρ} (addr @tt{a})))))
+           (big (production (hc-append γ (t " ∈ CContext")) (tuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ})))
+           (big (production (hc-append γ̂ (t " ∈ SContext")) (tuple (expr @tt{e}) @idtt{ρ} (addr @tt{a})))))
     ;; how 1st class control generalizes CFA2 (well, not /how/, but describes the mechanism)
     (run-stages big-jump))
 
@@ -623,35 +638,37 @@
     #:title (big @t{Negation is problematic})
     (define e-meaning
       (hc-append (t "⟦") @tt{e} (t "⟧")))
+    (define neg-lhs (big (t "⟦¬ T⟧ = ")))
+    (define bad-neg (big (list @t{Traces ∖ ⟦T⟧ ? } (citation "ICFP 2011"))))
+    (define good-neg (big (list (braces @t{ε})
+                                @t{ ∪ }
+                                (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π}))))
     (big
      (apply vc-append
             gap-size
             (show
-             (hc-append (t "⟦¬ T⟧ = ")
-                        (pict-cond
-                         [(and (<= possible stage) (< stage solution))
-                          (hc-append @t{Traces ∖ ⟦T⟧ ? } (citation "ICFP 2011"))]
-                         [else
-                          (hc-append
-                           (braces @t{ε})
-                           @t{ ∪ }
-                           (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π}))]))
+             (if (and (<= possible stage) (< stage solution))
+                 (hc-append neg-lhs (lc-superimpose
+                                     (blank (pict-width (apply hc-append good-neg)) 1)
+                                     (apply hc-append bad-neg)))
+                 (hc-append neg-lhs (lc-superimpose
+                                     (blank (pict-width (apply hc-append bad-neg)) 1)
+                                     (apply hc-append good-neg))))
              (>= stage possible))
             (append
+             (list
+              (show (hc-append (deriv "E" "¬ T" #:call? #t)
+                               @t{ = }
+                               (call @t{ν} (deriv "E" "T"))
+                               @t{ → }
+                               @tt{Fail}
+                               @t{, } (call @t{¬} (deriv "E" "T"))) (>= stage derivative))) 
              (list-pict-if
-              (= stage good)
-              (list (hc-append e-meaning (t " ∈ ⟦T⟧")))
+              (and (<= good stage) (< stage solution))
               (list
-               (show (hc-append (deriv "E" "¬ T" #:call? #t)
-                                @t{ = }
-                                (call @t{ν} (deriv "E" "T"))
-                                @t{ → }
-                                @tt{Fail}
-                                @t{, } (call @t{¬} (deriv "E" "T"))) (>= stage derivative)))) 
-             (list-pict-if
-              (and (<= prefixes stage) (< stage solution))
-              (list
-               (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)"))
+               (pict-if #:combine cc-superimpose (= stage good)
+                        (hc-append e-meaning (t " ∈ ⟦T⟧"))
+                        (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)")))
                (show (hc-append (it "e.g. ") (t "E ∈ prefixes(⟦¬ E⟧)")) (= stage problem)))
               (list
                (show (t "⟦¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∈ F⟦T⟧}") (>= stage characterizing))
@@ -680,8 +697,9 @@
   (define (what-related)
     (slide (big (t "Related Work")))
     (slide #:title "Sound analysis performance engineering"
-           @item[@t{Astrée } (citation "FMSD 2009")]
-           @item[@t{Sparrow/Airac } (citation "ASPLAS 2009/2011, SPE 2010, VMCAI 2011, PLDI 2012")])
+           (big (vl-append gap-size
+                 @item[@t{Astrée } (citation "FMSD 2009")]
+                 @item[@t{Sparrow/Airac } (citation "ASPLAS 2009/2011, SPE 2010, VMCAI 2011, PLDI 2012")])))
     (slide #:title "Systematic analysis constructions"
            (vc-append gap-size
                       (big (vl-append gap-size
@@ -690,21 +708,28 @@
                                       @item[@t{Calculational design } (citation "Marktoberdorf 1998")]
                                       @item[@t{Pretty-big-step Certified AI} (citation "JFLA 2014")]))))
     (slide #:title "Pushdown analysis"
-           (colorize (t "Higher-order:") "steel blue")
-           @item[@t{(introspective) PDCFA } (citation "Scheme Workshop 2010, ICFP 2012")]
-           @item[@t{CFA2 } (citation "ESOP 2010, ICFP 2011")]
-           @item[@t{HORS } (citation "LICS 2006, PPDP 2009, POPL 2009, PLDI 2011, ...")]
-           (colorize (t "First-order:") "firebrick")
-           @item[@t{LTL with regular valuations } (citation "TACS 2001")]
-           @item[@t{Weighted pushdown automata } (citation "SAS 2003, CAV 2006")])
+           (vc-append
+            gap-size
+            (colorize (t "Higher-order:") "steel blue")
+            (big (vl-append gap-size
+                            @item[@t{(introspective) PDCFA } (citation "Scheme Workshop 2010, ICFP 2012")]
+                            @item[@t{CFA2 } (citation "ESOP 2010, ICFP 2011")]
+                            @item[@t{HORS } (citation "LICS 2006, PPDP 2009, POPL 2009, PLDI 2011, ...")]))
+            (colorize (t "First-order:") "firebrick")
+            (big (vl-append gap-size
+                        @item[@t{LTL with regular valuations } (citation "TACS 2001")]
+                        @item[@t{Weighted pushdown automata } (citation "SAS 2003, CAV 2006")]))))
     (slide #:title "Temporal properties"
-           (colorize (t "Dynamic:") "firebrick")
-           @item{J-LO}
-           @item{Tracematches}
-           @item[@t{Temporal contracts } (citation "ICFP 2011")]
-           (colorize (t "Static:") "steel blue")
-           @item{Cecil}
-           @item{JPF-LTL}))
+           (vc-append gap-size
+            (colorize (t "Dynamic:") "firebrick")
+            (big (vl-append gap-size
+                            @item[@t{J-LO } (citation "RV 2005")]
+                            @item[@t{Tracematches } (citation "OOPSLA 2005")]
+                            @item[@t{Temporal contracts } (citation "ICFP 2011")]))
+            (colorize (t "Static:") "steel blue")
+            (big (vl-append gap-size
+                            @item[@t{Cecil } (citation "Software Engineering 1990")]
+                            @item[@t{JPF-LTL } (citation "Google summer of code 2010")])))))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; When do I propose to do all this crap?
@@ -760,4 +785,4 @@
 
 (module+ main
   (require (submod ".." slide-deck))
-  (run-talk '(intro/why)))
+  (void (run-talk)))

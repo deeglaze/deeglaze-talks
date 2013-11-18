@@ -132,9 +132,10 @@
           #:x-label #f
           #:y-label #f)))
 
-(let ([plt
-       (radar-plot (vector '(a . 4) '(b . 2) '(c . 3) '(d . 2.5) '(e . 1) '(f . 5))
-                   #:plot-scale 1.25)])
-  (pin-over
-   (bitmap (send plt get-bitmap))
-   50 0 (t "Dimension 1")))
+(module+ test
+ (let ([plt
+        (radar-plot (vector '(a . 4) '(b . 2) '(c . 3) '(d . 2.5) '(e . 1) '(f . 5))
+                    #:plot-scale 1.25)])
+   (pin-over
+    (bitmap (send plt get-bitmap))
+    50 0 (t "Dimension 1"))))
