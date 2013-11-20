@@ -14,39 +14,29 @@
          (only-in plot/utils polar->cartesian)
          (only-in plot/private/common/draw pen-colors))
 
-(define-syntax-rule (kinda-big e) (with-size 34 e))
-(define-syntax-rule (big e) (with-size 40 e))
-(define-syntax-rule (really-big e) (with-size 50 e))
 (define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
-(define-runtime-path jail-path "jail.png")
-(define-runtime-path horse-path "horse-macro.png")
-(define-runtime-path prohibited-path "prohibited.pdf")
-(define-runtime-path prohibited-png-path "prohibited.png")
 (define-runtime-path oaam-path "oaam.pdf")
 (define-runtime-path oaam-png-path "oaam.png")
-(define check-path (collection-file-path "checkmark.jpg" "talk-utils")) ;; 196 x 481
-(define xmark-path (collection-file-path "xmark.png" "talk-utils")) ;; 738 x 488
 
 (define js-path (collection-file-path "logo_JavaScript.png" "talk-utils"))
 (define dalvik-path (collection-file-path "dalvik-logo.jpg" "talk-utils"))
-(define-runtime-path racket-path "racket-logo.png")
-(define-runtime-path erlang-path "erlang-logo.png")
-(define-runtime-path coq-path "coq_logo.png")
 (define bg-slide-assembler
   (lambda (title sep content)
     (inset content (- margin) (- margin) 0 0)))
 
 (define use-pdf? #t)
+(define output-png? #f)
 (define (scale-pdf-or-png pdf-path factor png-path)
   (cond [use-pdf?
          (define pict
            (scale ((dynamic-require (collection-file-path "poppler-main.rkt" "talk-utils") 'page->pict)
                    pdf-path)
                   factor))
-         (with-output-to-file
-             prohibited-png-path #:exists 'replace
-             (λ () (write-bytes (convert (pict->bitmap pict) 'png-bytes))))
-         pict]
+         (when output-png?
+           (with-output-to-file
+              png-path #:exists 'replace
+              (λ () (write-bytes (convert (pict->bitmap pict) 'png-bytes)))))
+           pict]
         [else (bitmap png-path)]))
 
 (define-values (a-red a-gray a-blue a-dark-blue a-green a-yellow a-yellow-green a-dim-green a-bright-green)
@@ -64,6 +54,9 @@
 (define (darker-gray!)
   (default-colors!)
   (set! a-gray "dark gray"))
+(define (even-darker-gray!)
+  (default-colors!)
+  (set! a-gray "lightslategray"))
 (define (darker-gray-bright-green!)
   (default-colors!)
   (set! a-gray "dark gray")
@@ -75,7 +68,12 @@
 (current-main-font SC1)
 
 (module+ pict-utils
-  (provide frame* arrows-back-and-forth tagged-shadow-frame)
+  (provide kinda-big big really-big
+           frame* arrows-back-and-forth tagged-shadow-frame hilight-tag
+           in-sawasdee citation)
+  (define-syntax-rule (kinda-big e) (with-size 34 e))
+  (define-syntax-rule (big e) (with-size 40 e))
+  (define-syntax-rule (really-big e) (with-size 50 e))
   (define (frame* box #:color [color "black"] #:show [which '(l r t b)])
     (define w (pict-width box))
     (define h (pict-height box))
@@ -109,7 +107,16 @@
     (pin-over
      (shadow-frame base #:margin frame-margin #:sep frame-sep)
      (sub1 (+ frame-sep frame-margin)) (+ (- (pict-height top-frame)) frame-margin 1)
-     top-frame)))
+     top-frame))
+  
+  (define ((hilight b) p)
+    (show (colorize (filled-rectangle (pict-width p) (pict-height p)) "yellow") b))
+  (define (hilight-tag base finder tag #:show [condition #t])
+    (pin-under-tag base finder tag (hilight condition)))
+
+  (define-syntax-rule (in-sawasdee . body) (parameterize ([current-main-font "Sawasdee"]) . body))
+  (define (citation txt #:size [size 18])
+    (colorize (with-size size (t (format "[~a]" txt))) a-gray)))
 
 (module+ slide-deck
   (require slideshow-helpers/slide
@@ -145,32 +152,13 @@
   ;; Why HOPA?
 
   (define (why-hopa)
+    (slide (big @t{Program analyses predict program behavior}))
     (slide (big @t{HOPA is a class of})
            @item{online,}
            @item{computable,}
            @item{abstract interpretations}
            @item{of higher-order languages})
     (run-stages useful))
-
-  (define/staged universal #:stages [text collage]
-    (define base (big @t{HOPA is universal}))
-    (define (g p) (show p (>= stage collage)))
-    ;; Example languages (Erlang, JS, Dalvik, Coq, Racket)
-    (pin-over
-     (pin-over
-      (pin-over
-       (pin-over
-        (pin-over base
-                  500 -40
-                  (g (bitmap coq-path)))
-        -200 170
-        (g (scale (bitmap erlang-path) 0.5)))
-       200 70
-       (g (bitmap dalvik-path)))
-      160 -350
-      (g (bitmap racket-path)))
-     -120 -75
-     (g (scale (bitmap js-path) 0.1))))
 
   (define/staged useful
     #:stages [base anim to-name-a-few]
@@ -344,7 +332,7 @@
       (vc-append
        (pin-over pin-my-delta (- prec-x 10) (- prec-y 10) precision-frame)
        (blank 100)
-       spectrum))
+       (show spectrum (>= stage 0CFA))))
     (define point-to-precision
       (pin-arrow-line 15 aam-precision
                       precise-pointer cc-find
@@ -356,8 +344,6 @@
      (if (= stage bad-aam) point-to-precision aam-precision)
      (show (rotate (shadow-frame (big (t "Systematic constructions"))) (* 1/8 pi))
            (= stage systematic))))
-
-  (define-syntax-rule (in-sawasdee . body) (parameterize ([current-main-font "Sawasdee"]) . body))
 
   (define thesis-pict
     (parameterize ([current-font-size 30])
@@ -372,14 +358,11 @@
   (define/staged thesis-slide #:stages [statement propose-build propose-measure]
     (with-size 30
       (in-sawasdee
-       (define ((hilight b) p)
-         (show (colorize (filled-rectangle (pict-width p) (pict-height p)) "yellow") b))
        (define bg
          (tagged-shadow-frame
-          (pin-under-tag
-           (pin-under-tag 
-            thesis-pict lt-find 'systematic (hilight (>= stage propose-build)))
-           lt-find 'measure (hilight (= stage propose-measure)))
+          (hilight-tag
+           (hilight-tag thesis-pict lt-find 'systematic #:show (>= stage propose-build))
+           lt-find 'measure #:show (= stage propose-measure))
           (inset (big (bt "Thesis:")) 10)))
        (define build-text (big (t "I propose to build and prove")))
        (define build-arrow
@@ -418,7 +401,7 @@
       (slide (cc-superimpose psCESK (rotate (shadow-frame (t "Store-allocate continuations")) (* 1/8 pi))))
       (play (λ (n) (fade-pict n psCESK psCESK*)) #:steps 20 #:skip-first? #t)
       (slide psCESK*)
-      (slide (cc-superimpose psCESK* (rotate (shadow-frame (t "Nondeterministic store access")) (* 1/8 pi))))
+      (slide (cc-superimpose psCESK* (rotate (shadow-frame (t "Nondeterministic bounded store access")) (* 1/8 pi))))
       (play (λ (n) (fade-pict n psCESK* psaCESK)) #:steps 20 #:skip-first? #t)
       (slide psaCESK))
     ;; plug ICFP paper
@@ -433,6 +416,7 @@
     (slide #:title "Factor speed-up over naive vs. paper section"
            (force bench-overview))
     (run-stages intrinsic/extrinsic #:stage 'bad-aam) ;; transition from OAAM to pushdown
+    (slide (really-big (t "Pushdown abstraction and GC")))
     (run-stages (call/ret #f)) ;; motivate summaries
     (run-stages (call/ret #t)) 
     (hammer #t) ;; additional plug for semantics versus automata
@@ -451,30 +435,6 @@
                   (t "semantics refactorings")))
             (inset (shadow (big (colorize @t{Slogan} a-blue)) 10 5) 10))
            (= stage slogan))))
-
-  (define (1st-class-control)
-    (slide (big (t "Recipe for first-class control"))
-           'next
-           (hc-append @ctt{κ} (t " as values (storeable)")))
-
-    (run-stages kont-values-problem)
-
-    (define γ (big (ctxtt "\u03b3")))
-    (define hat (big (ctxtt " \u0302")))
-    (define γ̂
-      (panorama
-       (pin-over γ (- (/ (pict-width γ) 2) (/ (pict-width hat) 2)
-                      14 #| icky fudge factor |#)
-                 3 #| another icky fudge factor |# hat)))
-    
-    (slide (big (t "New environment ‶closes″ heap"))
-           (big (hc-append (t "Control closure ") @tt{χ} (t " : ") (addr @t{Addr}) @tt{ → } (t "℘(Store)")))
-           'next
-           (big (t "Context = CContext ∪ SContext"))
-           (big (production (hc-append γ (t " ∈ CContext")) (tuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ})))
-           (big (production (hc-append γ̂ (t " ∈ SContext")) (tuple (expr @tt{e}) @idtt{ρ} (addr @tt{a})))))
-    ;; how 1st class control generalizes CFA2 (well, not /how/, but describes the mechanism)
-    (run-stages big-jump))
 
   (define/staged high-level-summaries
     #:stages [an-expression save-to-table some-context some-more-context
@@ -517,46 +477,6 @@
                  (show (hc-append big-left mid big-right) (>= stage save-to-table))))
      (blank-line)
      (show (hc-append @tt{κ} (t " irrelevant to evaluate ") @tt{e}) (>= stage some-more-context))))
-
-  (define/staged big-jump #:stages [big-rule the-reveal]
-    (define base
-      (vc-append gap-size
-                 (big (t "In the context of"))
-                 (big (ntuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ} @ctt{κ} @Mtt{M} @Ξtt{Ξ}))
-                 (big (t "Interpret"))
-                 (tuple (expr @tt{e′}) @idtt{ρ′} (addr @tt{a}))
-                 (big (t "as"))
-                 (braces (tuple (expr @tt{e′}) @idtt{ρ′} @σtt{σ′} @tt{χ′}) @tt{ ∈ } (call @tt{dom} @Ξtt{Ξ})
-                         @tt{ : } @σtt{σ′} @tt{ ∈ } (call @tt{χ} (addr @tt{a})) @t{ and }
-                         @tt{χ′ ⊑ χ})))
-    (match stage
-      [(== big-rule) base]
-      [(== the-reveal)
-       (cc-superimpose
-        base
-        (tagged-shadow-frame (hc-append @t{CFA2 + } @tt{call/cc } (citation "ICFP 2011")
-                                        @t{ is a special case})
-                             (inset (shadow (colorize (big (t "Surprise!")) a-red) 10 5) 10)))]))
-  
-  (define/staged kont-values-problem #:stages [see arrows solution]
-    (define store-pict
-      (big (join-one (tag-pict @σtt{σ} 'first)
-                     @idtt{a}
-                     (braces
-                      (nstruct "rt" (idtt "e") (idtt "ρ") (tag-pict (pict-if (= stage solution)
-                                                                             (colorize @tt{b} a-green)
-                                                                             @σtt{σ′}) 'second))))))
-    (vc-append
-     gap-size
-     (big (t "Problem:"))
-     (pict-if (= stage arrows)
-              (arrows-back-and-forth store-pict (find-tag store-pict 'first) (find-tag store-pict 'second))
-              store-pict)
-     (blank 50)
-     (show (big (t "AAM: break circularity with indirection")) (= stage solution))))
-
-  (define (citation txt #:size [size 18])
-    (colorize (with-size size (t (format "[~a]" txt))) a-gray))
 
   (define/staged outline #:stages [all built-and-evaluated subsumed]
     #:title "Talk overview"
@@ -674,7 +594,6 @@
 
   (define (what-do)
     (run-stages proposal)
-    #;(run-stages temporal-contracts) ;; dropped grammar
     (run-stages TC-example)
     (run-stages TC-semantics)
     (run-stages TC-negation #:group 'less-theory)
@@ -683,28 +602,13 @@
   (define/staged proposal #:stages [what-do case-study slogan]
     (cc-superimpose
      (vc-append gap-size
-                (big (t "What I propose to do for HOPA"))
+                (big (t "Why so much precision?"))
                 (blank 50)
                 (show (kinda-big (t "Case study: Temporal higher-order contracts")) (>= stage case-study)))
      (show (tagged-shadow-frame
             (big (vl-append 5 (t "Abstract runtime monitoring")
                             (t "is software model-checking")))
             (shadow (colorize (inset (big @t{Slogan}) 10) a-blue) 10 5)) (= stage slogan))))
-
-  (define/staged temporal-contracts #:stages [grammar expression re-entrance] #:title "What is a Temporal Contract?"
-    (vl-append gap-size
-               (production (t "T") (t "T ∪ T") (t "T ∩ T") (t "¬ T") @tt{Any} @tt{Fail}
-                           (t "T · T") (t "T*") (t "ε") (t "pat") (t "〈pat〉T"))
-               (production (t "pat") (tt "v") (t "c(pat, …)") (hc-append (tt "!") (t "pat"))
-                           (call @tt{ref} @tt{x}) #;(tt "(== x)")
-                           (call @tt{bind} @tt{x}) #;(tt "x")
-                           @tt{_})
-               (production (t "c") (tt "call") (tt "return") (tt "cons") (t "…"))
-               (blank-line)
-               (show (hc-append (t "Or some nicer language of patterns, ") (it "e.g., ") (t "Racket's"))
-                     (>= stage expression))
-               (show (hc-append (code (? contracted-fn)) (t " forbid monitor re-entrance"))
-                     (>= stage re-entrance))))
 
   (define/staged TC-example #:stages [fn scontract tcontract-upto tcontract-full]
     #:title "Reader/writer example"
@@ -756,19 +660,11 @@
                                  (= stage semantics)))
                 (t "∂ standard except matching and negation"))))
 
-  (define (list-pict-if guard then else)
-    (let build ([ghosted (if guard else then)] [picts (if guard then else)])
-      (match* (ghosted picts)
-        [('() '()) '()]
-        [((cons g gs) (cons p ps)) (cons (cc-superimpose (ghost g) p) (build gs ps))]
-        [((? pair?) '()) (map ghost ghosted)]
-        [('() (? pair?)) picts])))
-
   (define/staged TC-negation #:stages [problematic good monitor-strategy prefixes
-                                       problem post-problem derivative correctness solution
+                                       problem post-problem derivative correctness solution hilight-denotation
                                        characterizing interesting]
     #:group less-theory (list problematic good monitor-strategy prefixes
-                              problem post-problem derivative correctness solution)
+                              problem post-problem derivative correctness solution hilight-denotation)
     #:title (big @t{Negation is problematic})
     (big
      (let ()
@@ -778,7 +674,7 @@
       (define bad-neg (hc-append @t{Traces ∖ ⟦T⟧ ? } (citation "ICFP 2011")))
       (define good-neg (hc-append (braces @t{ε})
                                   @t{ ∪ }
-                                  (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π})))
+                                  (braces @t{π : ∀ π′ ∈ } (tag-pict @t{F⟦T⟧} 'denotation) @t{∖{ε}. π′ ⋢ π})))
       (define neg-deriv (deriv "E" "¬ T" #:call? #t))
       (define neg-deriv-sem
         (hc-append neg-deriv
@@ -831,26 +727,41 @@
                    (show (t "Correctness criterion:") (>= stage correctness))
                    (show (hc-append (t "⟦") neg-deriv (t "⟧ = {π : Eπ ∈ ⟦¬ T⟧}")) (>= stage correctness))
                    (show (t "Denotationally:") (>= stage solution))
-                   (show (hc-append neg-lhs good-neg) (>= stage solution))))
+                   (show (hilight-tag (hc-append neg-lhs good-neg) lt-find 'denotation #:show (= stage hilight-denotation))
+                         (>= stage solution))))
       (if (<= stage post-problem)
           pre-solution
           post-solution))))
 
-  ;; TODO: Elaborate?
-  (define/staged TC-abstract #:stages [first second]
-    (vl-append gap-size
-               (big @t{Problems remaining in TC analysis:})
-               @item{Abstract derivatives}
-               #;@subitem{Abstract matching}
-               #;@subitem[@t{Precise identification } (with-font SC2 @t{(μ, Γ)})]
-               #;@subitem{Weak reference semantics}
-               (show
-                (vl-append gap-size
-                           @item{State explosion}
-                           #;@subitem{Per-state stores exponential}
-                           #;@subitem{Solution? Summarization → Sparseness}
-                                     )
-                (= stage second))))
+  (define/staged TC-abstract #:stages [first second third]
+    (define Γ (with-font SC2 (t "Γ")))
+    (define μ (with-font SC2 (t "μ")))
+    (vc-append
+     gap-size
+     (vl-append gap-size
+                (big @t{Problems remaining in TC analysis:})
+                @item{Abstract derivatives}
+                (show
+                 (vl-append gap-size
+                            @subitem{Combinatorial blowup}
+                            @subitem[@t{Precise identification } (parens μ (t ",") Γ)]
+                            @subitem[Γ (t " ⇒ weak reference semantics")])
+                 (>= stage second))
+                @item{State explosion}
+                (show
+                 (vl-append gap-size
+                            @subitem[Γ (t "⇒ per-state stores ⇒ exponential")]
+                            @subitem{Solution? Summarization → Sparseness})
+                 (>= stage third)))
+     (show
+      (small
+       (colorize
+        (vc-append 3
+                   (hc-append Γ (t " = abstract garbage collection"))
+                   (hc-append μ (t " = abstract counting"))
+                   (t "[ICFP 2006]"))
+        a-dark-blue))
+      (>= stage second))))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; What's the related work?
@@ -862,7 +773,7 @@
             (vl-append gap-size
                        @item{Design and implementation}
                        @item{Pushdown analysis}
-                       @item{Temporal properties})))
+                       @item{(H-O) Temporal properties})))
     (slide #:title "Analysis design and implementation"
            (vc-append
             gap-size
@@ -923,6 +834,96 @@
      (blank 30)
      @t{Defend in September 2014}))
 
+  (define/staged parting #:stages [open thanks]
+    (pin-over-hcenter
+     thesis-pict
+     (/ (pict-width thesis-pict) 2) 300
+     (show
+      (parameterize ([current-main-font "Respective Slanted"])
+        (colorize (with-size 110 (t "Thank You")) a-dark-blue))
+      (= stage thanks))))
+
+  ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Extra
+  (define/staged temporal-contracts #:stages [grammar expression re-entrance] #:title "What is a Temporal Contract?"
+    (vl-append gap-size
+               (production (t "T") (t "T ∪ T") (t "T ∩ T") (t "¬ T") @tt{Any} @tt{Fail}
+                           (t "T · T") (t "T*") (t "ε") (t "pat") (t "〈pat〉T"))
+               (production (t "pat") (tt "v") (t "c(pat, …)") (hc-append (tt "!") (t "pat"))
+                           (call @tt{ref} @tt{x}) #;(tt "(== x)")
+                           (call @tt{bind} @tt{x}) #;(tt "x")
+                           @tt{_})
+               (production (t "c") (tt "call") (tt "return") (tt "cons") (t "…"))
+               (blank-line)
+               (show (hc-append (t "Or some nicer language of patterns, ") (it "e.g., ") (t "Racket's"))
+                     (>= stage expression))
+               (show (hc-append (code (? contracted-fn)) (t " forbid monitor re-entrance"))
+                     (>= stage re-entrance))))
+
+  (define (1st-class-control)
+    (slide (big (t "Recipe for first-class control"))
+           'next
+           (hc-append @ctt{κ} (t " as values (storeable)")))
+
+    (run-stages kont-values-problem)
+
+    (define γ (big (ctxtt "\u03b3")))
+    (define hat (big (ctxtt " \u0302")))
+    (define γ̂
+      (panorama
+       (pin-over γ (- (/ (pict-width γ) 2) (/ (pict-width hat) 2)
+                      14 #| icky fudge factor |#)
+                 3 #| another icky fudge factor |# hat)))
+    
+    (slide (big (t "New environment ‶closes″ heap"))
+           (big (hc-append (t "Control closure ") @tt{χ} (t " : ") (addr @t{Addr}) @tt{ → } (t "℘(Store)")))
+           'next
+           (big (t "Context = CContext ∪ SContext"))
+           (big (production (hc-append γ (t " ∈ CContext")) (tuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ})))
+           (big (production (hc-append γ̂ (t " ∈ SContext")) (tuple (expr @tt{e}) @idtt{ρ} (addr @tt{a})))))
+    ;; how 1st class control generalizes CFA2 (well, not /how/, but describes the mechanism)
+    (run-stages big-jump))
+
+  (define/staged big-jump #:stages [big-rule the-reveal]
+    (define base
+      (vc-append gap-size
+                 (big (t "In the context of"))
+                 (big (ntuple (expr @tt{e}) @idtt{ρ} @σtt{σ} @tt{χ} @ctt{κ} @Mtt{M} @Ξtt{Ξ}))
+                 (big (t "Interpret"))
+                 (tuple (expr @tt{e′}) @idtt{ρ′} (addr @tt{a}))
+                 (big (t "as"))
+                 (braces (tuple (expr @tt{e′}) @idtt{ρ′} @σtt{σ′} @tt{χ′}) @tt{ ∈ } (call @tt{dom} @Ξtt{Ξ})
+                         @tt{ : } @σtt{σ′} @tt{ ∈ } (call @tt{χ} (addr @tt{a})) @t{ and }
+                         @tt{χ′ ⊑ χ})))
+    (match stage
+      [(== big-rule) base]
+      [(== the-reveal)
+       (cc-superimpose
+        base
+        (tagged-shadow-frame (hc-append @t{CFA2 + } @tt{call/cc } (citation "ICFP 2011")
+                                        @t{ is a special case})
+                             (inset (shadow (colorize (big (t "Surprise!")) a-red) 10 5) 10)))]))
+  
+  (define/staged kont-values-problem #:stages [see arrows solution]
+    (define store-pict
+      (big (join-one (tag-pict @σtt{σ} 'first)
+                     @idtt{a}
+                     (braces
+                      (nstruct "rt" (idtt "e") (idtt "ρ") (tag-pict (pict-if (= stage solution)
+                                                                             (colorize @tt{b} a-green)
+                                                                             @σtt{σ′}) 'second))))))
+    (vc-append
+     gap-size
+     (big (t "Problem:"))
+     (pict-if (= stage arrows)
+              (arrows-back-and-forth store-pict (find-tag store-pict 'first) (find-tag store-pict 'second))
+              store-pict)
+     (blank 50)
+     (show (big (t "AAM: break circularity with indirection")) (= stage solution))))
+
+  ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Main
+
   (define (run-talk [sections '(intro/why wrong outline done do related timeline/wrapup)])
     (when (memv 'intro/why sections)
       (title)
@@ -934,19 +935,17 @@
     (when (memv 'related sections) (what-related))
     (when (memv 'timeline/wrapup sections)
       (timeline)
-      (slide (pin-over-hcenter
-              thesis-pict
-              (/ (pict-width thesis-pict) 2) 300
-              (parameterize ([current-main-font "Respective Slanted"])
-                (with-size 110 (t "Thank You"))))))
+      (run-stages parting))
     (when (memv 'extras sections)
-      ;; TODO: keyboard-directed navigation?
       (1st-class-control)
       (run-stages gc-slide)
-      ;; TODO: continuation mark slides
-      )))
+      (slide #:title "Continuation marks?"
+             (t "Like GC, but an abstraction of")
+             (tt "(current-continuation-marks)")
+             (hc-append (t "instead of ") (tt "A")))
+      (run-stages temporal-contracts))))
 
 (module+ main
   (require (submod ".." slide-deck))
-  (darker-gray!)
-  (void (run-talk '(extras))))
+  (even-darker-gray!)
+  (void (run-talk '(done))))
