@@ -1,5 +1,5 @@
 #lang at-exp slideshow
-(require unstable/gui/slideshow
+(require (except-in unstable/gui/slideshow big)
          racket/splicing
          pict/code
          slideshow-helpers/picts
@@ -14,24 +14,29 @@
          (only-in plot/utils polar->cartesian)
          (only-in plot/private/common/draw pen-colors))
 
+(define-syntax-rule (kinda-big e) (with-size 34 e))
+(define-syntax-rule (big e) (with-size 40 e))
+(define-syntax-rule (really-big e) (with-size 50 e))
 (define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
 (define-runtime-path jail-path "jail.png")
 (define-runtime-path horse-path "horse-macro.png")
 (define-runtime-path prohibited-path "prohibited.pdf")
 (define-runtime-path prohibited-png-path "prohibited.png")
+(define-runtime-path oaam-path "oaam.pdf")
+(define-runtime-path oaam-png-path "oaam.png")
 (define check-path (collection-file-path "checkmark.jpg" "talk-utils")) ;; 196 x 481
 (define xmark-path (collection-file-path "xmark.png" "talk-utils")) ;; 738 x 488
 
-(define-runtime-path js-path "logo_JavaScript.png")
+(define js-path (collection-file-path "logo_JavaScript.png" "talk-utils"))
+(define dalvik-path (collection-file-path "dalvik-logo.jpg" "talk-utils"))
 (define-runtime-path racket-path "racket-logo.png")
-(define-runtime-path dalvik-path "dalvik-logo.jpg")
 (define-runtime-path erlang-path "erlang-logo.png")
 (define-runtime-path coq-path "coq_logo.png")
 (define bg-slide-assembler
   (lambda (title sep content)
     (inset content (- margin) (- margin) 0 0)))
 
-(define use-pdf? #f)
+(define use-pdf? #t)
 (define (scale-pdf-or-png pdf-path factor png-path)
   (cond [use-pdf?
          (define pict
@@ -44,7 +49,30 @@
          pict]
         [else (bitmap png-path)]))
 
-(current-main-font "Linux Libertine Capitals O")
+(define-values (a-red a-gray a-blue a-dark-blue a-green a-yellow a-yellow-green a-dim-green a-bright-green)
+  (values #f #f #f #f #f #f #f #f #f))
+(define (default-colors!)
+  (set! a-red "firebrick")
+  (set! a-gray "gray")
+  (set! a-blue "steel blue")
+  (set! a-dark-blue "dark slate blue")
+  (set! a-green "medium forest green")
+  (set! a-yellow "gold")
+  (set! a-yellow-green "olivedrab")
+  (set! a-dim-green "limegreen")
+  (set! a-bright-green "lime"))
+(define (darker-gray!)
+  (default-colors!)
+  (set! a-gray "dark gray"))
+(define (darker-gray-bright-green!)
+  (default-colors!)
+  (set! a-gray "dark gray")
+  (set! a-dim-green "yellowgreen")
+  (set! a-bright-green "limegreen"))
+
+(define SC1 "Cinzel")
+(define SC2 "Linux Libertine Capitals O")
+(current-main-font SC1)
 
 (module+ pict-utils
   (provide frame* arrows-back-and-forth tagged-shadow-frame)
@@ -77,7 +105,7 @@
        (cc-superimpose
         (colorize (filled-rectangle (pict-width top) (pict-height top)) "white")
         top)
-       #:color "gray" #:show '(l t r)))
+       #:color a-gray #:show '(l t r)))
     (pin-over
      (shadow-frame base #:margin frame-margin #:sep frame-sep)
      (sub1 (+ frame-sep frame-margin)) (+ (- (pict-height top-frame)) frame-margin 1)
@@ -86,8 +114,12 @@
 (module+ slide-deck
   (require slideshow-helpers/slide
            (submod icfp2013-talk/semantics slide-deck)
+           (rename-in (except-in (submod icfp2013-talk/icfp2013 slide-deck) title)
+                      [run-talk icfp-talk])
            icfp2013-talk/color-scheme
-           (only-in (submod hopa2013-talk/hopa2013 slide-deck) concrete)
+           (only-in (submod hopa2013-talk/hopa2013 slide-deck) concrete gc-slide)
+           (submod hopa2013-talk/call-ret slide-deck)
+           (submod hopa2013-talk/hammer-slide slide-deck)
            (only-in icfp2013-talk/pict-helpers
                     join-one braces nstruct production expr call tuple ntuple parens)
            (submod ".." pict-utils))
@@ -113,25 +145,12 @@
   ;; Why HOPA?
 
   (define (why-hopa)
-    (slide (big @t{Why care about HOPA?}))
-    (run-stages type-jail)
-    (run-stages universal)
     (slide (big @t{HOPA is a class of})
            @item{online,}
            @item{computable,}
            @item{abstract interpretations}
-           @item{of higher-order languages}))
-
-  (define/staged type-jail #:num-stages 3
-    (define base-types (with-size 150 (t "Types")))
-    (define type-jail (cc-superimpose base-types (bitmap jail-path)))
-    (define strikeout
-      (scale-pdf-or-png prohibited-path 2.5 prohibited-png-path))
-    (define type-strikeout (cc-superimpose base-types strikeout))
-    (match stage
-      [0 base-types]
-      [1 type-jail]
-      [2 type-strikeout]))
+           @item{of higher-order languages})
+    (run-stages useful))
 
   (define/staged universal #:stages [text collage]
     (define base (big @t{HOPA is universal}))
@@ -155,64 +174,66 @@
 
   (define/staged useful
     #:stages [base anim to-name-a-few]
-    #:anim-at anim
-    #:skip-first
-    #:steps 30
+    #:anim-at [anim
+               #:skip-first
+               #:steps 30]
     (define big-font 28)
+    (define small-font 16)
     (define base-pict (big @t{HOPA is useful}))
     (define (vlappend-vec v) (apply vl-append 3 (vector->list v)))
     (define (anim-fn n)
-      (with-size 16
-        (define superβ @t{(Super-beta) inlining})
-        (define constant-prop @t{Constant propagation & folding})
-        (define safety @t{Safety test removal})
-        (define global @t{Globalization})
-        (define arity @t{Arity-raising})
-        (define unbox @t{Unboxing})
-        (define future @t{Future optimization})
-        (define uve @t{Useless variable elimination})
-        (define ive @t{Induction variable elimination})
-        (define vect @t{Vectorization})
-        (define fusion @t{Loop fusion})
-        (define strict @t{Strictness promotion})
-        (define lazy @t{Laziness refactoring})
-        (define strength @t{Strength reduction})
-        (define opts (vector superβ constant-prop
-                             safety global arity unbox future uve ive vect fusion strict lazy strength))
-        (define opt-base
-          (vl-append (with-size big-font (colorize @t{Optimizations} "firebrick"))
-                     (shadow-frame (ghost (vlappend-vec opts)))))
-        (define race @t{Data race detection})
-        (define ifl @t{Information flow for security})
-        (define termination @t{Termination analysis})
-        (define complexity @t{Complexity analysis})
-        (define dependence @t{Dependence analysis})
-        (define inference @t{Type inference})
-        (define shapes @t{Shape analysis})
-        (define understandings (vector race ifl termination complexity dependence inference shapes))
-        (define understanding-base
-          (vl-append (with-size big-font (colorize @t{Program Understanding} "medium forest green"))
-                     (shadow-frame (ghost (vlappend-vec understandings)))))
-        (define temporal @t{Temporal logic model-checking})
-        (define contract @t{Behavioral contract validity})
-        (define verifications (vector temporal contract))
-        (define verification-base
-          (vl-append (with-size big-font (colorize @t{Verification} "steel blue"))
-                     (shadow-frame (ghost (vlappend-vec verifications)))))
-        (define fader (λ (p n) (fade-pict n (ghost p) p)))
-        (define scale0 (chopped-interval-scale 0 2/5))
-        (define scale1 (chopped-interval-scale 1/3 4/5))
-        (define scale2 (chopped-interval-scale 2/3 1))
-        (cc-superimpose
-         base-pict
-         (hc-append
-          20
-          ((slide-and-compose opt-base opts superβ fader)
-           (scale0 n))
-          ((slide-and-compose (fader understanding-base (scale0 n)) understandings race fader)
-           (scale1 n))
-          ((slide-and-compose (fader verification-base (scale1 n)) verifications temporal fader)
-           (scale2 n))))))
+      (with-font SC2
+                 (with-size small-font
+                   (define superβ @t{(Super-beta) inlining})
+                   (define constant-prop @t{Constant propagation & folding})
+                   (define safety @t{Safety test removal})
+                   (define global @t{Globalization})
+                   (define arity @t{Arity-raising})
+                   (define unbox @t{Unboxing})
+                   (define future @t{Future optimization})
+                   (define uve @t{Useless variable elimination})
+                   (define ive @t{Induction variable elimination})
+                   (define vect @t{Vectorization})
+                   (define fusion @t{Loop fusion})
+                   (define strict @t{Strictness promotion})
+                   (define lazy @t{Laziness refactoring})
+                   (define strength @t{Strength reduction})
+                   (define opts (vector superβ constant-prop
+                                        safety global arity unbox future uve ive vect fusion strict lazy strength))
+                   (define opt-base
+                     (vl-append (with-size big-font (colorize @t{Optimizations} a-red))
+                                (shadow-frame (ghost (vlappend-vec opts)))))
+                   (define race @t{Data race detection})
+                   (define ifl @t{Information flow for security})
+                   (define termination @t{Termination analysis})
+                   (define complexity @t{Complexity analysis})
+                   (define dependence @t{Dependence analysis})
+                   (define inference @t{Type inference})
+                   (define shapes @t{Shape analysis})
+                   (define understandings (vector race ifl termination complexity dependence inference shapes))
+                   (define understanding-base
+                     (vl-append (with-size big-font (colorize @t{Program Understanding} a-green))
+                                (shadow-frame (ghost (vlappend-vec understandings)))))
+                   (define temporal @t{Temporal logic model-checking})
+                   (define contract @t{Behavioral contract validity})
+                   (define verifications (vector temporal contract))
+                   (define verification-base
+                     (vl-append (with-size big-font (colorize @t{Verification} a-blue))
+                                (shadow-frame (ghost (vlappend-vec verifications)))))
+                   (define fader (λ (p n) (fade-pict n (ghost p) p)))
+                   (define scale0 (chopped-interval-scale 0 2/5))
+                   (define scale1 (chopped-interval-scale 1/3 4/5))
+                   (define scale2 (chopped-interval-scale 2/3 1))
+                   (cc-superimpose
+                    base-pict
+                    (hc-append
+                     20
+                     ((slide-and-compose opt-base opts superβ fader)
+                      (scale0 n))
+                     ((slide-and-compose (fader understanding-base (scale0 n)) understandings race fader)
+                      (scale1 n))
+                     ((slide-and-compose (fader verification-base (scale1 n)) verifications temporal fader)
+                      (scale2 n)))))))
   
     (match stage
       [(== base) (cc-superimpose base-pict (ghost (anim-fn 0.0)))]
@@ -225,76 +246,116 @@
   ;; What's wrong with HOPA?
 
   (define (whats-wrong)
-    (slide (big (t "What's wrong with HOPA?")))
-    (run-stages intrinsic/extrinsic)
-    (run-stages temporal)
+    (slide (really-big (t "What's wrong with HOPA?")))
+    (run-stages intrinsic/extrinsic #:group 'intro)
+    ;; Motivate systematic constructions
+    (run-stages (grinder #t))
     ;; AAAaaand thesis
     (run-stages thesis-slide))
 
-  (define/staged intrinsic/extrinsic
-    #:stages [intrinsic extrinsic 0CFA HORS JPF AAM mine]
+  (define/staged intrinsic/extrinsic #:stages [intrinsic extrinsic 0CFA HORS JPF AAM mine
+                                                         zoom-extrinsic systematic
+                                                         bad-aam]
+    #:group intro (list intrinsic extrinsic 0CFA HORS JPF AAM mine zoom-extrinsic systematic)
     #:title (with-size 42
               (hc-append (t "Intrinsically") (show (t " and Extrinsically") (>= stage extrinsic))))
-    (define δ (/ (* -2 pi) 6))
-    (define θs (make-vector 6))
-    (define extent 300)
-    (for/fold ([p 0+0i]) ([i 6])
-      (vector-set! θs i (* i δ)))
-    (define-values (point-l point-t)
-      (for/fold ([l +inf.0] [t +inf.0]) ([θ (in-vector θs)])
-        (match-define (vector x y) (polar->cartesian θ extent))
-        (values (min l x) (min t y))))
-    (define points (for/list ([θ (in-vector θs)])
-                     (match-define (vector x y) (polar->cartesian θ extent))
-                     (list (- x point-l) (- y point-t))))
-    (define qualities (append (list @t{Sound} @t{Fast} @t{Precise})
-                              (for/list ([q (in-list (list @t{Maintainable} @t{Design Ease} @t{Grokable}))])
-                                (show q (>= stage extrinsic)))))
-    (define graphs
-      `(("Set-based 0CFA" ,0CFA .
-         #((sound . 5) (fast . 4) (precise . 2) (maintainable . 2) (design . 2) (grokable . 3)))
+    ;; Quality / 0CFA / HORS / JPF / AAM / Me
+    (define goodness `#(,a-red ,a-yellow ,a-yellow-green ,a-dim-green ,a-bright-green))
+    (define precise-pointer (blank))
+    (define (color-box name number)
+      (colorize (filled-rectangle (pict-width name) (pict-height name))
+                (vector-ref goodness (sub1 number))))
+    (define the-table
+      `(("0CFA" ,0CFA .
+         #hash((sound . 5) (fast . 5) (precise . 2) (maintainable . 2) (design . 2) (grokable . 3)))
         ("HORS" ,HORS .
-         #((sound . 4) (fast . 3) (precise . 4) (maintainable . 2) (design . 1) (grokable . 1)))
+         #hash((sound . 4) (fast . 3) (precise . 5) (maintainable . 2) (design . 1) (grokable . 1)))
         ("JPF" ,JPF .
-         #((sound . 2) (fast . 3) (precise . 4) (maintainable . 3) (design . 3) (grokable . 2)))
+         #hash((sound . 2) (fast . 3) (precise . 5) (maintainable . 3) (design . 3) (grokable . 2)))
         ("AAM" ,AAM .
-         #((sound . 5) (fast . 1) (precise . 3) (maintainable . 4) (design . 5) (grokable . 5)))
-        ("Mine" ,mine .
-         #((sound . 5) (fast . 3.75) (precise . 3.75) (maintainable . 4.25) (design . 5) (grokable . 5)))))
-    (define dimensions '(sound fast precise maintainable design grokable))
-    (pin-over
-     (pin-over
-      (pin-under
-       (panorama
-        (for/fold ([p (blank)])
-            ([point (in-list points)]
-             [quality (in-list qualities)]
-             [dim (in-list dimensions)])
-          (match-define (list x y) point)
-          (define x-offset
-            (if (eq? dim 'maintainable)
-                (- 50)
-                0))
-          (pin-over p (+ x x-offset) y quality)))
-       225 80
-       (show (bitmap
-              (send
-               (radar-plot (take (map cddr graphs) (max 1 (- stage extrinsic)))
-                           #:dimensions dimensions)
-               get-bitmap))
-             (>= stage 0CFA)))
-      -110 -40
+         #hash((sound . 5) (fast . 1) (precise . 2) (maintainable . 4) (design . 5) (grokable . 5)))
+        ("Thesis" ,mine .
+         #hash((sound . 5) (fast . 4) (precise . 4) (maintainable . 4) (design . 5) (grokable . 5)))))
+    (define impl-names (for/list ([impl the-table])
+                         (match-define (list-rest name at-stage quals) impl)
+                         (show (inset (t name) 5) (>= stage at-stage))))
+    (define dimensions '("Sound" "Fast" "Precise" "Design Ease" "Maintainable" "Grokable"))
+    (define dimension-picts (for/list ([txt dimensions]) (inset (t txt) 5)))
+    (define worst (t "Worst "))
+    (define best (t " Best"))
+    (define spectrum
+      (apply hc-append 0
+             worst
+             (append
+              (for/list ([c (in-range 1 (add1 (vector-length goodness)))]) (color-box (cc-superimpose worst best) c))
+              (list best))))
+    (define table-picts
+      (append*
+       (cons (blank) impl-names)
+       (for/list ([quality '(sound fast precise design maintainable grokable)]
+                  [txt dimension-picts]
+                  [txt-phase (list intrinsic intrinsic intrinsic extrinsic extrinsic extrinsic)])
+         (define tpict (tag-pict (show txt (>= stage txt-phase)) quality))
+         (cons tpict
+               (for/list ([impl (in-list the-table)]
+                          [title (in-list impl-names)])
+                 (match-define (list-rest name at-stage quals) impl)
+                 (define box (color-box
+                              (cc-superimpose (blank 0 (pict-height tpict)) title)
+                              (hash-ref quals quality)))
+                 (show
+                  (cond [(equal? name "AAM")
+                         (cond
+                          [(eq? quality 'design) (tag-pict box 'AAM-start)]
+                          [(eq? quality 'precise) (tag-pict box 'AAM-precision)]
+                          [else box])]
+                        [(and (equal? name "Thesis") (eq? quality 'grokable))
+                         (tag-pict box 'Thesis-end)]
+                        [else
+                         box])
+                  (>= stage at-stage)))))))
+    (define base (table 6 table-picts rc-superimpose lt-superimpose 0 0))
+    (define pin-precision
+      (pin-over base -50 150 precise-pointer))
+    (define-values (aam-x aam-y) (lt-find base (find-tag base 'AAM-start)))
+    (define-values (thesis-x thesis-y) (rb-find base (find-tag base 'Thesis-end)))
+    (define prec (find-tag base 'AAM-precision))
+    (define-values (prec-x prec-y) (lt-find base prec))
+    (define my-delta
       (show
-       (shadow-frame
-        (apply vl-append gap-size
-               (for/list ([g (in-list (take graphs 4))]
-                          [i (in-naturals 1)])
-                 (show (colorize (t (car g)) (vector-ref pen-colors i))
-                       (>= stage (cadr g))))))
-       (>= stage 0CFA)))
-     -110 360
-     (show (colorize (big (t "My work")) (vector-ref pen-colors 5))
-           (>= stage mine))))
+       (shadow
+        (inset (thick-filled-rounded-rectangle
+                (add1 (- thesis-x aam-x)) (add1 (- thesis-y aam-y))
+                #:style 'transparent #:border-color a-red #:border-width 15)
+               10)
+        #:color a-yellow
+        5)
+       (>= systematic stage zoom-extrinsic)))
+    (define pin-my-delta
+      (pin-over pin-precision (- aam-x 10) (- aam-y 10) my-delta)) ;; offset position by inset amount
+    (define precision-frame
+      (show (shadow
+             (inset (thick-filled-rounded-rectangle
+                     (pict-width (first prec)) (pict-height (first prec))
+                     #:style 'transparent #:border-color a-dark-blue #:border-width 15) 10)
+             5 #:color a-yellow)
+            (= stage bad-aam)))
+    (define aam-precision
+      (vc-append
+       (pin-over pin-my-delta (- prec-x 10) (- prec-y 10) precision-frame)
+       (blank 100)
+       spectrum))
+    (define point-to-precision
+      (pin-arrow-line 15 aam-precision
+                      precise-pointer cc-find
+                      (find-tag aam-precision 'precise) lc-find
+                      #:line-width 3
+                      #:color a-red))
+    (cc-superimpose
+     (blank 900 500)
+     (if (= stage bad-aam) point-to-precision aam-precision)
+     (show (rotate (shadow-frame (big (t "Systematic constructions"))) (* 1/8 pi))
+           (= stage systematic))))
 
   (define-syntax-rule (in-sawasdee . body) (parameterize ([current-main-font "Sawasdee"]) . body))
 
@@ -340,38 +401,58 @@
                           #:start-angle (* -1/3 pi)
                           #:end-angle (* -1/2 pi))]))))
 
-  (define/staged temporal #:stages [question horse hors jail]
-    (define base (big @t{Temporal properties?}))
-    (define good-bad
-      (shadow-frame (tabular (list (big @t{Simply-typed tree grammar}) (scale (bitmap check-path) 0.2))
-                             (list (big @t{Anything else}) (scale (bitmap xmark-path) 0.2)))))
-    (match stage
-      [(== question) base]
-      [(== horse) (cc-superimpose base (bitmap horse-path))]
-      [(== hors) good-bad]
-      [(== jail) (cc-superimpose good-bad (bitmap jail-path))]))
-
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; What have I done for HOPA?
 
   (define (what-done)
-    (slide (big (t "What have I done for HOPA?")))
-    (run-stages what-I-did)
-    (run-stages essence-slogan)
-    (parameterize ([current-main-font "Andale Mono"])
-     (run-stages concrete))
 
+    (slide (really-big (t "First: Recap of AAM")))
+    ;; Recap of AAM
+    (run-stages what-is-CESK)
+    (parameterize ([pushdown? #f]
+                   [use-color? #f])
+      (define psCESK (CESK-table sCESK))
+      (define psCESK* (CESK-table sCESK*))
+      (define psaCESK (CESK-table saCESK))
+      (slide psCESK)
+      (slide (cc-superimpose psCESK (rotate (shadow-frame (t "Store-allocate continuations")) (* 1/8 pi))))
+      (play (λ (n) (fade-pict n psCESK psCESK*)) #:steps 20 #:skip-first? #t)
+      (slide psCESK*)
+      (slide (cc-superimpose psCESK* (rotate (shadow-frame (t "Nondeterministic store access")) (* 1/8 pi))))
+      (play (λ (n) (fade-pict n psCESK* psaCESK)) #:steps 20 #:skip-first? #t)
+      (slide psaCESK))
+    ;; plug ICFP paper
+    (run-stages oaam-plug)
     (parameterize ([use-color? #f])
-      (slide (a-state))
-      (play (λ (t) (CESK-table sfade t)))
-      (play (λ (t) (CESK-table smove t)))
-      (slide (CESK-table smove 1.0))
-      (slide (CESK-table sCESKM))
-      (slide (CESK-table sCESKM-ret))
-      (slide (CESK-table sCESKMΞ)))
+      (run-stages state-to-edge))
+    (parameterize ([current-main-font SC2])
+      (run-stages (aam->oaam #f) #:group 'intro)) ;; graph interpretation
+    (parameterize ([use-color? #f])
+      (icfp-talk '(lazy abscomp) #:main-font SC2 #:deltas? #f)) ;; steal ICFP lazy and abscomp bits whole sale
+    ;; evaluation
+    (slide #:title "Factor speed-up over naive vs. paper section"
+           (force bench-overview))
+    (run-stages intrinsic/extrinsic #:stage 'bad-aam) ;; transition from OAAM to pushdown
+    (run-stages (call/ret #f)) ;; motivate summaries
+    (run-stages (call/ret #t)) 
+    (hammer #t) ;; additional plug for semantics versus automata
+    (run-stages essence-slogan)
+    (run-stages high-level-summaries)
 
-    (run-stages summaries-cfa2)
+    (parameterize ([current-main-font "Andale Mono"])
+      (run-stages concrete)))
+  
+  (define/staged oaam-plug #:stages [plug slogan]
+    (cc-superimpose
+     (shadow-frame (scale-pdf-or-png oaam-path 0.7 oaam-png-path))
+     (show (tagged-shadow-frame
+            (big (vl-append
+                  (t "Engineering tricks as")
+                  (t "semantics refactorings")))
+            (inset (shadow (big (colorize @t{Slogan} a-blue)) 10 5) 10))
+           (= stage slogan))))
 
+  (define (1st-class-control)
     (slide (big (t "Recipe for first-class control"))
            'next
            (hc-append @ctt{κ} (t " as values (storeable)")))
@@ -381,10 +462,10 @@
     (define γ (big (ctxtt "\u03b3")))
     (define hat (big (ctxtt " \u0302")))
     (define γ̂
-     (panorama
-      (pin-over γ (- (/ (pict-width γ) 2) (/ (pict-width hat) 2)
-                         14 #| icky fudge factor |#)
-                3 #| another icky fudge factor |# hat)))
+      (panorama
+       (pin-over γ (- (/ (pict-width γ) 2) (/ (pict-width hat) 2)
+                      14 #| icky fudge factor |#)
+                 3 #| another icky fudge factor |# hat)))
     
     (slide (big (t "New environment ‶closes″ heap"))
            (big (hc-append (t "Control closure ") @tt{χ} (t " : ") (addr @t{Addr}) @tt{ → } (t "℘(Store)")))
@@ -394,6 +475,48 @@
            (big (production (hc-append γ̂ (t " ∈ SContext")) (tuple (expr @tt{e}) @idtt{ρ} (addr @tt{a})))))
     ;; how 1st class control generalizes CFA2 (well, not /how/, but describes the mechanism)
     (run-stages big-jump))
+
+  (define/staged high-level-summaries
+    #:stages [an-expression save-to-table some-context some-more-context
+                            the-change last-step
+                            guarantee]
+    (define big-left (big (show @tt{Ξ[(e, σ) ↦ κ]} (>= stage the-change))))
+    (define mid (blank 80 1))
+    (define big-right (big
+                       (pict-cond
+                        [(= stage save-to-table) @tt{M[e ↦ v]}]
+                        [(>= stage some-context) @tt{M[(e, σ) ↦ (v, σ′)]}])))
+    (vc-append
+     gap-size
+     (big
+      (vl-append gap-size
+                 (hc-append (pict-cond #:combine rc-superimpose
+                                       [(<= stage save-to-table) @tt{e}]
+                                       [(= stage some-context) (ntuple @tt{e} @tt{σ})]
+                                       [(>= stage some-more-context) (ntuple @tt{e} @tt{σ} @tt{κ})]
+                                       [else big-left]) ;; just for the spacing
+                            (cc-superimpose (ghost mid)
+                                            (hc-append @tt{↦} (superscript (t "*"))))
+                            (pict-cond #:combine lc-superimpose
+                                       [(<= stage save-to-table) @tt{v}]
+                                       [(= stage some-context) (ntuple @tt{v} @tt{σ′})]
+                                       [(>= stage some-more-context) (ntuple @tt{v} @tt{σ′} @tt{κ})]
+                                       [else big-right])) ;; just for spacing
+                 (show (hc-append (ghost big-left) (cc-superimpose (ghost mid) @tt{⇓})) (>= stage the-change))
+                 (show (hc-append (rc-superimpose
+                                   (ghost big-left)
+                                   (ntuple @tt{e} @tt{σ} @tt{_}))
+                                  (cc-superimpose (ghost mid)
+                                                  (hc-append @tt{↦} (superscript (t "*"))))
+                                  (ntuple @tt{v} @tt{σ′} @tt{_})) (>= stage the-change))
+                 (show (hc-append (ghost big-left)
+                                  (cc-superimpose (ghost mid) @tt{↦})
+                                  (ntuple @tt{v} @tt{σ′} @tt{κ}) (t " if ") @tt{κ = Ξ(e, σ)})
+                       (>= stage last-step))
+                 ;; move memo over to value side
+                 (show (hc-append big-left mid big-right) (>= stage save-to-table))))
+     (blank-line)
+     (show (hc-append @tt{κ} (t " irrelevant to evaluate ") @tt{e}) (>= stage some-more-context))))
 
   (define/staged big-jump #:stages [big-rule the-reveal]
     (define base
@@ -413,7 +536,7 @@
         base
         (tagged-shadow-frame (hc-append @t{CFA2 + } @tt{call/cc } (citation "ICFP 2011")
                                         @t{ is a special case})
-                             (inset (shadow (colorize (big (t "Surprise!")) "firebrick") 10 5) 10)))]))
+                             (inset (shadow (colorize (big (t "Surprise!")) a-red) 10 5) 10)))]))
   
   (define/staged kont-values-problem #:stages [see arrows solution]
     (define store-pict
@@ -421,7 +544,7 @@
                      @idtt{a}
                      (braces
                       (nstruct "rt" (idtt "e") (idtt "ρ") (tag-pict (pict-if (= stage solution)
-                                                                             (colorize @tt{b} "medium forest green")
+                                                                             (colorize @tt{b} a-green)
                                                                              @σtt{σ′}) 'second))))))
     (vc-append
      gap-size
@@ -433,45 +556,67 @@
      (show (big (t "AAM: break circularity with indirection")) (= stage solution))))
 
   (define (citation txt #:size [size 18])
-     (colorize (with-size size (t (format "[~a]" txt))) "gray"))
+    (colorize (with-size size (t (format "[~a]" txt))) a-gray))
 
-  (define/staged what-I-did #:stages [all built-and-evaluated focus]
+  (define/staged outline #:stages [all built-and-evaluated subsumed]
+    #:title "Talk overview"
     (define built-pict
       (in-sawasdee (show (with-size 24 (t "Built, proved and evaluated: 1000x speed-up"))
-                         (= stage built-and-evaluated))))
+                         (>= stage built-and-evaluated))))
+    (define subsumed-pict
+      (rotate (in-sawasdee (show (with-size 24 (t "Subsumed by")) (= stage subsumed)))
+              (* 0.3 pi)))
+    (define abs-model
+      (colorize @subitem[@t{Abstract model of stack introspection } (citation "JFP best of ICFP 2012")]
+                a-gray))
+    (define summarization
+      @subitem[@t{Systematic summarization } (citation "HOPA workshop 2013")])
     (define base
       (pin-over
-       (cc-superimpose
-        (vl-append
-         gap-size
-         (colorize @t{Done:} (if (< stage focus) "medium forest green" "gray"))
-         (tag-pict
-          (colorize-if (>= stage focus)
-                       @item[@t{Systematic optimizations } (citation "ICFP 2013")]
-                       "lightgray")
-          'built)
-         (colorize @t{Almost done (not yet true) :} (if (< stage focus) "steel blue" "gray"))
-         ;; Not going to talk about 1NSAs
-         (colorize-if (>= stage focus)
-                      @item[@t{Abstract model of stack introspection } (citation "JFP best of ICFP 2012")]
-                      "lightgray")
-         @item[@t{Systematic summarization } (citation "HOPA workshop 2013")]
-         (colorize @t{Work in progress:} (if (< stage focus) "firebrick" "gray"))
-         @item{Temporal reasoning through contracts}))
-       300 -30
-       built-pict))
+       (pin-over
+        (cc-superimpose
+         (with-size 28
+           (vl-append
+            gap-size
+            @item[(colorize (t "Contributions and prosed work:") a-blue)]
+            (tag-pict
+             @subitem[@t{Systematic optimizations } (citation "ICFP 2013")]
+             'built)
+            ;; Not going to talk about 1NSAs
+            abs-model
+            summarization
+            @subitem{Case study: Temporal contracts}
+            ;; next
+            @item[(colorize (t "Related Work") a-green)]
+            ;; next
+            @item[(colorize (t "Timeline") a-red)]
+            )))
+        300 -50
+        built-pict)
+       -100 100 subsumed-pict))
     ;; Put "slogan" in a frame without a bottom so we can make it look like
     ;; it's part of the shadow frame containing the slogan
-    (pin-arrow-line
-     15
-     base
-     built-pict lc-find
-     (first (find-tag base 'built)) (λ (p path) (define-values (x y) (ct-find p path)) (values (- x 50) y))
-     #:alpha (if (= stage built-and-evaluated) 1 0)
-     #:hide-arrowhead? (not (= stage built-and-evaluated))
-     #:start-angle pi
-     #:start-pull 1.2
-     #:end-angle (* -1/3 pi)))
+    (pin-arrow-line 15
+                    (pin-arrow-line
+                     15
+                     base
+                     built-pict rc-find
+                     (first (find-tag base 'built))
+                     (λ (p path) (define-values (x y) (rc-find p path)) (values (- x 170) y))
+                     #:alpha (if (>= stage built-and-evaluated) 1 0)
+                     #:hide-arrowhead? (not (>= stage built-and-evaluated))
+                     #:start-angle 0
+                     #:start-pull .5
+                     #:end-angle pi
+                     #:end-pull .5
+                     #:line-width 2)
+                    abs-model (λ (p path) (define-values (x y) (lc-find p path)) (values (+ x 40) (- y 15)))
+                    summarization (λ (p path) (define-values (x y) (lc-find p path)) (values (+ x 40) (- y 15)))
+                    #:start-angle (* 1.1 pi) #:start-pull 1.2
+                    #:end-angle (* 1.9 pi)
+                    #:alpha (if (= stage subsumed) 1 0)
+                    #:hide-arrowhead? (not (= stage subsumed))
+                    #:line-width 2))
 
   (define/staged essence-slogan #:stages [items slogan slogan-zoom]
     (define frame-margin 20)
@@ -481,34 +626,35 @@
        (hc-append
         (t "Summarization is ")
         (tag-pict
-         (colorize-if (>= stage slogan-zoom) (t "context-sensitive") "medium forest green")
+         (colorize-if (>= stage slogan-zoom) (t "context-sensitive") a-green)
          'context)
         (t " memoization"))
-       (inset (shadow (big (colorize @t{Slogan} "steel blue")) 10 5) 10)
+       (inset (shadow (big (colorize @t{Slogan} a-blue)) 10 5) 10)
        #:margin frame-margin
        #:sep frame-sep))
     (define some-contexts
-      (vl-append @t{Heap}
-                 @t{Stack root addresses}
-                 @t{Continuation marks}
-                 @t{Temporal monitor state}))
+      (with-font SC2
+                 (vl-append @t{Heap}
+                            @t{Stack root addresses}
+                            @t{Continuation marks}
+                            @t{Temporal monitor state})))
     (define framed-contexts (shadow-frame some-contexts))
     (define base
       (vc-append gap-size
                  (big (t "Systematic summarization"))
                  (vl-append gap-size
                             @item{AAM-style construction}
-                            @item{Rederives (polyvariant) CFA2}
+                            @item{Generalizes state-of-the-art}
                             @item{Allows stack-inspection and GC}
                             @item{New look at first-class control})))
-
+    (define frame-y 350)
     (pin-over-hcenter
      base
      (/ (pict-width base) 2) -50     
      (show
       (pin-arrow-line
        15
-       (pin-over the-slogan 490 200 (show framed-contexts (>= stage slogan-zoom)))
+       (pin-over the-slogan 490 frame-y (show framed-contexts (>= stage slogan-zoom)))
        framed-contexts
        ;; get at the bottom-right of the frame and not the drop-shadow
        (λ (pict path)
@@ -523,29 +669,15 @@
        #:end-angle (* 1/2 pi))
       (>= stage slogan))))
 
-  (define/staged summaries-cfa2 #:stages [cfa2 stack-inspection]
-    (rb-superimpose
-     (cc-superimpose
-      (blank 900 700)
-      (vc-append
-       gap-size
-       (big (hc-append (t "Share ") @σtt{σ} @t{, } @Mtt{M} (t " and ") @Ξtt{Ξ} (t ",")))
-       (big (t "Get CFA2 without stack allocation"))    
-       (blank 50)
-       (show
-        (big (hc-append(t "Stack inspection: include more in ") @ctxtt{ctx}))
-        (= stage stack-inspection))))
-     (citation "Essence of summarization" #:size 20)))
-
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; What do I propose to do for HOPA?
 
   (define (what-do)
     (run-stages proposal)
-    (run-stages temporal-contracts)
+    #;(run-stages temporal-contracts) ;; dropped grammar
     (run-stages TC-example)
     (run-stages TC-semantics)
-    (run-stages TC-negation)
+    (run-stages TC-negation #:group 'less-theory)
     (run-stages TC-abstract))
 
   (define/staged proposal #:stages [what-do case-study slogan]
@@ -553,11 +685,11 @@
      (vc-append gap-size
                 (big (t "What I propose to do for HOPA"))
                 (blank 50)
-                (show (big (t "Case study: Temporal higher-order contracts")) (>= stage case-study)))
+                (show (kinda-big (t "Case study: Temporal higher-order contracts")) (>= stage case-study)))
      (show (tagged-shadow-frame
             (big (vl-append 5 (t "Abstract runtime monitoring")
                             (t "is software model-checking")))
-            (shadow (colorize (inset (big @t{Slogan}) 10) "steel blue") 10 5)) (= stage slogan))))
+            (shadow (colorize (inset (big @t{Slogan}) 10) a-blue) 10 5)) (= stage slogan))))
 
   (define/staged temporal-contracts #:stages [grammar expression re-entrance] #:title "What is a Temporal Contract?"
     (vl-append gap-size
@@ -595,21 +727,20 @@
                              #,to-negate)))))
     (vc-append gap-size               
                (with-size 20
-                (code (define (f path)
-                        (define-values (i o) (open-input-output-port path))
-                        (list (thunk (read i))
-                              (λ (d) (write d o))
-                              (thunk (close-input-port i)
-                                     (close-output-port o))))
-                      ;; TODO: Stage, use sugar for define, shared
-                      #,(show
-                         (code
-                          (rec/c c-f
-                            (tmon 'pos 'neg 'contract
-                                  (path? . -> . (list/c (-> any/c) (any/c . -> . void?) (-> void?)))
-                                  #,neg
-                                  f)))
-                         (>= stage scontract))))))
+                 (code (define (f path)
+                         (define-values (i o) (open-input-output-port path))
+                         (list (thunk (read i))
+                               (λ (d) (write d o))
+                               (thunk (close-input-port i)
+                                      (close-output-port o))))
+                       #,(show
+                          (code
+                           (rec/c c-f
+                                  (tmon (path? . -> . (list/c (-> any/c) (any/c . -> . void?) (-> void?)))
+                                        #,neg
+                                        f)))
+                          (>= stage scontract))))
+               (t "Spec: no calls after close")))
 
   (define (deriv E T #:call? [call? #f])
     (big (hc-append (hb-append (t "∂") (small (t E))) (if call? (parens (t T)) (t T)))))
@@ -633,103 +764,139 @@
         [((? pair?) '()) (map ghost ghosted)]
         [('() (? pair?)) picts])))
 
-  (define/staged TC-negation #:stages [problematic possible good prefixes problem solution derivative
-                                               characterizing interesting]
+  (define/staged TC-negation #:stages [problematic good monitor-strategy prefixes
+                                       problem post-problem derivative correctness solution
+                                       characterizing interesting]
+    #:group less-theory (list problematic good monitor-strategy prefixes
+                              problem post-problem derivative correctness solution)
     #:title (big @t{Negation is problematic})
-    (define e-meaning
-      (hc-append (t "⟦") @tt{e} (t "⟧")))
-    (define neg-lhs (big (t "⟦¬ T⟧ = ")))
-    (define bad-neg (big (list @t{Traces ∖ ⟦T⟧ ? } (citation "ICFP 2011"))))
-    (define good-neg (big (list (braces @t{ε})
-                                @t{ ∪ }
-                                (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π}))))
     (big
-     (apply vc-append
+     (let ()
+      (define e-meaning
+        (hc-append (t "⟦") @tt{e} (t "⟧")))
+      (define neg-lhs (t "⟦¬ T⟧ = "))
+      (define bad-neg (hc-append @t{Traces ∖ ⟦T⟧ ? } (citation "ICFP 2011")))
+      (define good-neg (hc-append (braces @t{ε})
+                                  @t{ ∪ }
+                                  (braces @t{π : ∀ π′ ∈ F⟦T⟧∖{ε}. π′ ⋢ π})))
+      (define neg-deriv (deriv "E" "¬ T" #:call? #t))
+      (define neg-deriv-sem
+        (hc-append neg-deriv
+                   @t{ = }
+                   (call @tt{done?} (deriv "E" "T"))
+                   @t{ → }
+                   @tt{Fail}
+                   @t{, } (call @t{¬} (deriv "E" "T"))))
+      (define full-trace-semantics (hc-append e-meaning (t " ∈ ⟦T⟧")))
+      (define partial-trace-semantics (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)")))
+      (define (strikeout p #:show [condition #t])
+        (cc-superimpose
+         p
+         (show (colorize (filled-rectangle (* 1.2 (pict-width p)) 4) a-red) condition)))
+      (define pre-solution
+        (vc-append
+         gap-size
+         (hc-append neg-lhs bad-neg)
+         (pict-cond
+          [(and (<= good stage) (< stage solution))
+           (vc-append
             gap-size
-            (show
-             (if (and (<= possible stage) (< stage solution))
-                 (hc-append neg-lhs (lc-superimpose
-                                     (blank (pict-width (apply hc-append good-neg)) 1)
-                                     (apply hc-append bad-neg)))
-                 (hc-append neg-lhs (lc-superimpose
-                                     (blank (pict-width (apply hc-append bad-neg)) 1)
-                                     (apply hc-append good-neg))))
-             (>= stage possible))
-            (append
-             (list
-              (show (hc-append (deriv "E" "¬ T" #:call? #t)
-                               @t{ = }
-                               (call @t{ν} (deriv "E" "T"))
-                               @t{ → }
-                               @tt{Fail}
-                               @t{, } (call @t{¬} (deriv "E" "T"))) (>= stage derivative))) 
-             (list-pict-if
-              (and (<= good stage) (< stage solution))
-              (list
-               (pict-if #:combine cc-superimpose (= stage good)
-                        (hc-append e-meaning (t " ∈ ⟦T⟧"))
-                        (hc-append (call @t{prefixes} e-meaning) (t " ⊆ prefixes(⟦T⟧)")))
-               (show (hc-append (it "e.g. ") (t "E ∈ prefixes(⟦¬ E⟧)")) (= stage problem)))
-              (list
-               (show (t "⟦¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∈ F⟦T⟧}") (>= stage characterizing))
-               (show (t "⟦¬ ¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∉ F⟦T⟧}") (>= stage characterizing))))
-             (list
-              (show (t "Interesting consequence:") (= stage interesting))
-              (show (t "⟦¬ ¬ T⟧ ≠ ⟦T⟧ but ⟦¬ ¬ ¬ ¬ T⟧ = ⟦¬ ¬ T⟧") (= stage interesting)))))))
+            (pict-cond #:combine cc-superimpose
+                       [(<= good stage monitor-strategy)
+                        (strikeout full-trace-semantics #:show (= stage monitor-strategy))]
+                       [(<= stage post-problem)
+                        (strikeout partial-trace-semantics #:show (= stage post-problem))])
+            (show (colorize (cond
+                             [(= stage monitor-strategy)
+                              (t "Ineffective monitor strategy")]
+                             [(= stage prefixes) (t "?")]
+                             [else (t "!")]) a-red)
+                  (<= monitor-strategy stage problem))
+            (show (vc-append (hc-append (it "No, consider ") (t "⟦¬ E⟧ = Traces ∖ {E} "))
+                             (hc-append (t "so EE ∈ Traces ∖ {E}"))
+                             (colorize (t "Thus E ∈ prefixes(⟦¬ E⟧)") a-red)) (<= problem stage post-problem)))]
+          [else
+           (vc-append
+            gap-size
+            (show (t "⟦¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∈ F⟦T⟧}") (>= stage characterizing))
+            (show (t "⟦¬ ¬ ¬ T⟧ = {ε} ∪ {Aπ : A ∉ F⟦T⟧}") (>= stage characterizing))
+            (show (t "Interesting consequence:") (= stage interesting))
+            (show (t "⟦¬ ¬ T⟧ ≠ ⟦T⟧ but ⟦¬ ¬ ¬ ¬ T⟧ = ⟦¬ ¬ T⟧") (= stage interesting)))])))
+      (define post-solution
+        (vc-append gap-size
+                   (colorize (t "Idea: solve operationally") a-blue)
+                   (blank-line)
+                   neg-deriv-sem
+                   (blank-line)
+                   (show (t "Correctness criterion:") (>= stage correctness))
+                   (show (hc-append (t "⟦") neg-deriv (t "⟧ = {π : Eπ ∈ ⟦¬ T⟧}")) (>= stage correctness))
+                   (show (t "Denotationally:") (>= stage solution))
+                   (show (hc-append neg-lhs good-neg) (>= stage solution))))
+      (if (<= stage post-problem)
+          pre-solution
+          post-solution))))
 
+  ;; TODO: Elaborate?
   (define/staged TC-abstract #:stages [first second]
     (vl-append gap-size
                (big @t{Problems remaining in TC analysis:})
                @item{Abstract derivatives}
-               @subitem{Abstract matching}
-               @subitem{Precise identification (μ, Γ)}
-               @subitem{Weak reference semantics}
+               #;@subitem{Abstract matching}
+               #;@subitem[@t{Precise identification } (with-font SC2 @t{(μ, Γ)})]
+               #;@subitem{Weak reference semantics}
                (show
                 (vl-append gap-size
                            @item{State explosion}
-                           @subitem{Per-state stores exponential}
-                           @subitem{Solution? Summarization → Sparseness})
+                           #;@subitem{Per-state stores exponential}
+                           #;@subitem{Solution? Summarization → Sparseness}
+                                     )
                 (= stage second))))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; What's the related work?
 
   (define (what-related)
-    (slide (big (t "Related Work")))
-    (slide #:title "Sound analysis performance engineering"
-           (big (vl-append gap-size
-                 @item[@t{Astrée } (citation "FMSD 2009")]
-                 @item[@t{Sparrow/Airac } (citation "ASPLAS 2009/2011, SPE 2010, VMCAI 2011, PLDI 2012")])))
-    (slide #:title "Systematic analysis constructions"
-           (vc-append gap-size
-                      (big (vl-append gap-size
-                                      @item[@t{AAM } (citation "ICFP 2010")]
-                                      @item[@t{Calculational approach } (citation "SAS 2008")]
-                                      @item[@t{Calculational design } (citation "Marktoberdorf 1998")]
-                                      @item[@t{Pretty-big-step Certified AI} (citation "JFLA 2014")]))))
+    (slide (really-big (t "Related Work")))
+    (slide #:title "Related Work Outline"
+           (big
+            (vl-append gap-size
+                       @item{Design and implementation}
+                       @item{Pushdown analysis}
+                       @item{Temporal properties})))
+    (slide #:title "Analysis design and implementation"
+           (vc-append
+            gap-size
+            (big (vl-append
+                  gap-size
+                  @item[@t{Calculational approach } (citation "Marktoberdorf 1998, SAS 2008")]
+                  @item[@t{AAM } (citation "ICFP 2010")]
+                  @item[@t{Pretty-big-step Certified AI } (citation "JFLA 2014")]
+                  @item[@t{Astrée } (citation "FMSD 2009")]
+                  @item[@t{Sparrow/Airac } (citation "ASPLAS 2009/2011, SPE 2010, VMCAI 2011, PLDI 2012")]))))
     (slide #:title "Pushdown analysis"
            (vc-append
             gap-size
-            (colorize (t "Higher-order:") "steel blue")
+            (colorize (t "Higher-order:") a-blue)
             (big (vl-append gap-size
                             @item[@t{(introspective) PDCFA } (citation "Scheme Workshop 2010, ICFP 2012")]
                             @item[@t{CFA2 } (citation "ESOP 2010, ICFP 2011")]
                             @item[@t{HORS } (citation "LICS 2006, PPDP 2009, POPL 2009, PLDI 2011, ...")]))
-            (colorize (t "First-order:") "firebrick")
+            (colorize (t "First-order:") a-red)
             (big (vl-append gap-size
-                        @item[@t{LTL with regular valuations } (citation "TACS 2001")]
-                        @item[@t{Weighted pushdown automata } (citation "SAS 2003, CAV 2006")]))))
+                            @item[@t{LTL with regular valuations } (citation "TACS 2001")]
+                            @item[@t{Weighted pushdown automata } (citation "SAS 2003, CAV 2006")]))))
     (slide #:title "Temporal properties"
            (vc-append gap-size
-            (colorize (t "Dynamic:") "firebrick")
-            (big (vl-append gap-size
-                            @item[@t{J-LO } (citation "RV 2005")]
-                            @item[@t{Tracematches } (citation "OOPSLA 2005")]
-                            @item[@t{Temporal contracts } (citation "ICFP 2011")]))
-            (colorize (t "Static:") "steel blue")
-            (big (vl-append gap-size
-                            @item[@t{Cecil } (citation "Software Engineering 1990")]
-                            @item[@t{JPF-LTL } (citation "Google summer of code 2010")])))))
+                      (colorize (t "Dynamic:") a-red)
+                      (big (vl-append gap-size
+                                      @item[@t{J-LO } (citation "RV 2005")]
+                                      @item[@t{Tracematches } (citation "OOPSLA 2005")]
+                                      @item[@t{Temporal contracts } (citation "ICFP 2011")]))
+                      (colorize (t "Static:") a-blue)
+                      (big (vl-append gap-size
+                                      @item[@t{Cecil } (citation "Software Engineering 1990")]
+                                      @item[@t{HORS}]
+                                      @item[@t{Trace effect analysis } (citation "JFP 2008")])))))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; When do I propose to do all this crap?
@@ -756,21 +923,11 @@
      (blank 30)
      @t{Defend in September 2014}))
 
-  (define/staged outline #:stages [bullets joke] #:title "Talk Outline"
-    (vl-append gap-size
-     @item{What have I done?}
-     @item{What will I do?}
-     @item{What have others done?}
-     @item{What is my timeline?}
-     (blank-line)
-     (show (t "What is the capital of Assyria?") (= stage joke))))
-
-  (define (run-talk [sections '(intro/why useful wrong outline done do related timeline/wrapup)])
+  (define (run-talk [sections '(intro/why wrong outline done do related timeline/wrapup)])
     (when (memv 'intro/why sections)
       (title)
-      (why-hopa))
-    (when (memv 'useful sections) (run-stages useful))
-    (when (memv 'wrong sections) (whats-wrong))
+      (why-hopa)) ;; universal, optimizations, understanding, verification
+    (when (memv 'wrong sections) (whats-wrong)) ;; hard to do everything easily, well and understandably.
     (when (memv 'outline sections) (run-stages outline))
     (when (memv 'done sections) (what-done))
     (when (memv 'do sections) (what-do))
@@ -781,8 +938,15 @@
               thesis-pict
               (/ (pict-width thesis-pict) 2) 300
               (parameterize ([current-main-font "Respective Slanted"])
-               (with-size 110 (t "Thank You"))))))))
+                (with-size 110 (t "Thank You"))))))
+    (when (memv 'extras sections)
+      ;; TODO: keyboard-directed navigation?
+      (1st-class-control)
+      (run-stages gc-slide)
+      ;; TODO: continuation mark slides
+      )))
 
 (module+ main
   (require (submod ".." slide-deck))
-  (void (run-talk)))
+  (darker-gray!)
+  (void (run-talk '(extras))))

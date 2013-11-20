@@ -81,7 +81,7 @@ Second part of the conversation: concrete makes this easy [demo?]
                               (* pi 1/16))))))
 
 (module+ slide-deck
-  (provide convince concrete)
+  (provide convince concrete gc-slide)
   
   (define/staged convince #:num-stages 4
     (define (light-on txt b)
@@ -213,7 +213,29 @@ Second part of the conversation: concrete makes this easy [demo?]
           [(< app2 stage app2memo) (highlight-tagged whole 'idbody)]
           [(= stage app2memo) (highlight-tagged whole 'appbody)]
           [(>= stage bindn2) (highlight-tagged whole 'body)]
-          [else whole])))
+          [else whole]))
+
+  (define/staged gc-slide #:stages [approx more]
+    #:title "Garbage collection"
+    (vc-append
+     @t{Read root addresses of κ through Ξ}
+     (hc-append @idtt{𝒯}
+                (parens @idtt{rt} (parens @idtt{e} comma @idtt{ρ} comma @idtt{σ}))
+                @tt{ = ⋃}
+                (braces @idtt{𝒯} (parens @idtt{κ}) @tt{ : }
+                        @idtt{κ} @tt{ ∈ } @idtt{Ξ} (parens @idtt{e} comma @idtt{ρ} comma @idtt{σ})))
+     (blank-line)
+     (show
+      (vl-append gap-size
+                 @t{or put root addresses in φ}
+                 (production (hc-append @ctt{κ} @tt{ ∈ Kont}) @tt{[]} @tt{rt(ctx)} (hc-append (parens @ftt{φ} comma @tt{A}) @tt{:} @ctt{κ}))
+                 (hc-append (call (t "push") (hc-append @ftt{φ} comma @tt{[]}))
+                            @t{ = }
+                            (parens @ftt{φ} comma (call @idtt{𝒯} @ftt{φ})) @tt{:[]})
+                 (hc-append (call (t "push") (hc-append @ftt{φ} comma (parens @ftt{φ′} comma @tt{A}) @tt{:} @ctt{κ}))
+                            @t{ = }
+                            (parens @ftt{φ} comma (call @idtt{𝒯} @ftt{φ′}) @t{∪} @tt{A}) @tt{:} (parens @ftt{φ′} comma @tt{A}) @tt{:} @ctt{κ}))
+      (= stage more)))))
 (module+ main
   (require (submod ".." slide-deck)
            (submod ".." utils))
@@ -347,10 +369,4 @@ Second part of the conversation: concrete makes this easy [demo?]
                   (λ () (send-url "https://github.com/ianj/pushdown-shift-reset")))
        (para #:align 'center (big (t "Thank you"))))
 
-(slide #:title "Garbage collection"
-       @t{Read root addresses of κ through Ξ}
-       (hc-append @idtt{𝒯}
-                  (parens @idtt{rt} (parens @idtt{e} comma @idtt{ρ} comma @idtt{σ}))
-                  @tt{ = ⋃}
-                  (braces @idtt{𝒯} (parens @idtt{κ}) @tt{ : }
-                              @idtt{κ} @tt{ ∈ } @idtt{Ξ} (parens @idtt{e} comma @idtt{ρ} comma @idtt{σ})))))
+(run-stages gc-slide))

@@ -5,5 +5,11 @@
                "github://github.com/ianj/slideshow-helpers/master"
                "github://github.com/ianj/ianj-talks/master/utils"
                "github://github.com/ianj/ianj-talks/master/icfp2013"
-               "github://github.com/ianj/ianj-talks/master/hopa2013"))
+               "github://github.com/ianj/ianj-talks/master/hopa2013"
+               "gui-lib"
+               "pict-lib"
+               "plot-lib"
+               "plot-gui-lib"
+               "scheme-lib"
+               "unstable-lib"))
 (define collection "proposal-talk")

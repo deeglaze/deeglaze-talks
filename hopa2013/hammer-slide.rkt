@@ -79,7 +79,7 @@
      #:line-width 3
      #:style 'long-dash))
   ;; Transition funnier?
-  (slide hope-arrows #;(if hope? hope-arrows with-arrows))))
+  (slide (if hope? hope-arrows with-arrows))))
 
 (module+ main
  (require (submod ".." slide-deck))
