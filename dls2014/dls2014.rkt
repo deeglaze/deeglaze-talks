@@ -4,6 +4,7 @@
 EXTERNAL DEPS:
 Packages (removable with racket-poppler? = #f and require poppler-main instead of racket-poppler):
 racket-poppler (raco pkg install racket-poppler)
+slideshow-helpers (raco pkg install git://github.com/ianj/slideshow-helpers#master)
 
 Libraries (removable with use-pdf? = #f):
 libpoppler
@@ -17,7 +18,7 @@ Telegrama
 Papers (removable dependency with use-pdf? = #f):
 Abstracting Control (locally as "abstracting-control.pdf")
  url: http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=AEA0F8AF807727EB1353B012FC8D7E41?doi=10.1.1.43.8753&rep=rep1&type=pdf
-Abstracting Abstract Machines
+;; (already in repo) Abstracting Abstract Machines (locally as "../icfp2013/vanhorn2010abstract.pdf")
 |#
 
 (require (except-in unstable/gui/slideshow stage)
