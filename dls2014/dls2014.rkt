@@ -19,14 +19,16 @@ Papers (removable dependency with use-pdf? = #f):
 Abstracting Control (locally as "abstracting-control.pdf")
  url: http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=AEA0F8AF807727EB1353B012FC8D7E41?doi=10.1.1.43.8753&rep=rep1&type=pdf
 ;; (already in repo) Abstracting Abstract Machines (locally as "../icfp2013/vanhorn2010abstract.pdf")
+Soft Contract Verification (locally as "soft-contract-verification.pdf")
 |#
 
 (require (except-in unstable/gui/slideshow stage)
+         (for-syntax syntax/parse)
          rsvg
          slideshow-helpers/picts
          slideshow-helpers/slide
-         ;racket-poppler
-         talk-utils/poppler-main ;; raco link'd to ../utils
+         racket-poppler
+         ;talk-utils/poppler-main ;; raco link'd to ../utils
          file/convertible
          unstable/gui/ppict
          net/sendurl
@@ -36,7 +38,13 @@ Abstracting Control (locally as "abstracting-control.pdf")
          racket/gui/base
          scheme/runtime-path
          slideshow/balloon slideshow/face)
+;; PARAMETERS
 (set-page-numbers-visible! #f)
+(define use-pdf? #t)
+(define-for-syntax racket-poppler? #t)
+
+(define SCREEN-WIDTH 1024)
+(define SCREEN-HEIGHT 768)
 
 (define (ct s) (text s "Cantarell" (current-font-size)))
 (define (cbt s) (text s (cons 'bold "Cantarell") (current-font-size)))
@@ -45,18 +53,12 @@ Abstracting Control (locally as "abstracting-control.pdf")
 (define (iic s) (text s (cons 'italic "Inconsolata") (current-font-size)))
 
 (define (kt s) (text s "Kaushan Script" (current-font-size)))
+(define-syntax-rule (wkt . forms) (parameterize ([current-main-font "Kaushan Script"]) . forms))
 (define (tg s) (text s "Telegrama" (current-font-size)))
-
-(define SCREEN-WIDTH 1024)
-(define SCREEN-HEIGHT 768)
 
 (define bg-slide-assembler
   (lambda (title sep content)
     (inset content (- margin) (- margin) 0 0)))
-
-(define bg-color-assembler
-  (lambda (title sep content)
-    (inset content -50 -50 0 0)))
 
 (define-syntax-rule (scode e ...)
   (parameterize ([current-font-size 28])
@@ -74,20 +76,22 @@ Abstracting Control (locally as "abstracting-control.pdf")
 (define-runtime-path redex-path "plt-redex.jpeg")
 (define-runtime-path regehr-path "regehr.png")
 
+(define-runtime-path forbidden-path "forbidden.svg")
+
 (define-runtime-path aam-path "../icfp2013/vanhorn2010abstract.pdf")
+(define-runtime-path phil-path "soft-contract-verification.pdf")
 (define-runtime-path delim-path "abstracting-control.pdf")
 
 (define-runtime-path aam-png "../icfp2013/vanhorn2010abstract.png")
+(define-runtime-path phil-png "soft-contract-verification.png")
 (define-runtime-path delim-png "abstracting-control.png")
 
-
-(define use-pdf? #f)
-(define-for-syntax racket-poppler? #f)
 (define-syntax (render-pdf stx)
-  (syntax-case stx ()
-    [(_ file scale) (if racket-poppler?
-                  #'(page->pict (pdf-page (open-pdf file) 0) scale)
-                  #'(page->pict file scale))]))
+  (syntax-parse stx
+    [(_ file α)
+     (if racket-poppler?
+         #'(scale (bitmap (page->bitmap (pdf-page (open-pdf file) 0) (* 4 α))) 0.25)
+         #'(page->pict file scale))]))
 (define-syntax-rule (error-bitmap e) (error 'todo "Render bitmap ~a" 'e))
 (define (pdf-scale-or-bitmap pdf-path png-path [scale-factor 1.0])
   (cond [use-pdf?
@@ -100,13 +104,16 @@ Abstracting Control (locally as "abstracting-control.pdf")
         [else (bitmap png-path)]))
 
 (define aam-pict (delay (pdf-scale-or-bitmap aam-path aam-png 0.7)))
+(define phil-pict (delay (pdf-scale-or-bitmap phil-path phil-png 0.7)))
 (define delim-pict (delay (pdf-scale-or-bitmap delim-path delim-png 0.7)))
 (define delim-pict3 (delay (pdf-scale-or-bitmap delim-path delim-png 3)))
 
 (define tyellow (make-object color% #xFF #xFF #x00 0.3))
 
+(define (svg->pict path [α 1.0]) (svg-file->pict path α))
+
 (module+ utils
-  (provide bracket-left bracket-right fewer-col faster-col)
+  (provide bracket-left bracket-right fewer-col faster-col mkei)
   (define fewer-col "medium forest green")
   (define faster-col "slateblue")
   (define ((bracket superimpose) width height brack-height)
@@ -115,6 +122,11 @@ Abstracting Control (locally as "abstracting-control.pdf")
      (superimpose brack
                   (filled-rectangle (/ width 2) height))
      brack))
+  (define (mkei n)
+    (define n* (floor n))
+    (if (inexact? n*)
+        (inexact->exact n*)
+        n*))
   (define bracket-right (bracket rt-superimpose))
   (define bracket-left (bracket lt-superimpose)))
 
@@ -149,7 +161,7 @@ Abstracting Control (locally as "abstracting-control.pdf")
                        (vc-append @ct{University of Maryland}
                                   @ct{College Park, MD, USA})))))))))
 
-  (define/staged what-do-I-do #:stages [sounds-abstract delim aam static abstract]
+  (define/staged what-do-I-do #:stages [sounds-abstract delim aam static not-really abstract]
     #:anim-at [sounds-abstract #:steps 10]
     #:anim-at [delim #:steps 10 #:skip-first] ;; slide from left "abstract control"
     #:anim-at [aam #:steps 10 #:skip-first] ;; slide from right "abstracting abstract machines"
@@ -160,7 +172,7 @@ Abstracting Control (locally as "abstracting-control.pdf")
                                             (- (/ SCREEN-HEIGHT 2))
                                             n)))
     
-    (define delimp (shadow-frame (scale (bitmap (pict->bitmap (force delim-pict3))) .2333)))
+    (define delimp (shadow-frame (force delim-pict)))
     (define aamp (shadow-frame (force aam-pict)))
     (define (mk-delim n)
       (pin-over-vcenter
@@ -168,9 +180,14 @@ Abstracting Control (locally as "abstracting-control.pdf")
        #:x-translate (lerp (- (+ (pict-width delimp) (/ SCREEN-WIDTH 2)))
                            (- (pict-width delimp))
                            n)))
-    (define (mk-aam n)
+    (define (mk-aam n txt?)
+      (define analysis (shadow-frame @ic{Static analysis}))
       (pin-over-vcenter
-       (mk-delim 1) 0 35 aamp
+       (mk-delim 1)
+       0 35 (cc-superimpose aamp
+                       (show (cc-superimpose analysis
+                                             (show (svg->pict forbidden-path 8)
+                                                   (>= stage not-really))) txt?))
        #:x-translate (lerp (/ SCREEN-WIDTH 2) 5 n)))
     (cond
      [(= stage sounds-abstract)
@@ -178,14 +195,14 @@ Abstracting Control (locally as "abstracting-control.pdf")
      [(= stage delim)
       (λ (n) (mk-delim (fast-start n)))]
      [(= stage aam)
-      (λ (n) (mk-aam (fast-start n)))]
-     [else (cc-superimpose (mk-aam 1)
-                           (if (= stage static)
-                               (shadow-frame @ic{Static analysis})
-                               (shadow-frame
-                                (hc-append gap-size
-                                           (colorize @iic{But really} "firebrick")
-                                           @ic{semantics of abstract execution}))))]))
+      (λ (n) (mk-aam (fast-start n) #f))]
+     [else (cc-superimpose (mk-aam 1 (>= stage static))
+                           (show
+                            (shadow-frame
+                             (hc-append gap-size
+                                        (colorize @iic{Really} "firebrick")
+                                        @ic{semantics of abstract execution}))
+                            (>= stage abstract)))]))
 
   ;; Point at parts of John Regehr's tweet
   (define/staged regehr #:stages [base any-lang some-lang some-parts]
@@ -232,9 +249,7 @@ Abstracting Control (locally as "abstracting-control.pdf")
                         #:color "red")))
 
   (define/staged whiskey #:stages [old-days 80s 90s 2000s now technical-debt λhard]
-    #:title (parameterize 
-                ([current-main-font "Kaushan Script"])
-              @titlet{Whiskey features})
+    #:title (wkt @titlet{Whiskey features})
     (cc-superimpose
      (table 5
             (list @ct{70s} 
@@ -258,6 +273,12 @@ Abstracting Control (locally as "abstracting-control.pdf")
                   (blank 0)
                   (blank 0)
                   (blank 0)
+                  (show @ct{Prototypes} (>= stage 2000s))
+                  (show @ct{Prototypes} (>= stage now))
+
+                  (blank 0)
+                  (blank 0)
+                  (blank 0)
                   (blank 0)
                   (show @ct{Continuations?} (>= stage now)))
             cc-superimpose cc-superimpose gap-size gap-size)
@@ -266,27 +287,109 @@ Abstracting Control (locally as "abstracting-control.pdf")
                  (show (shadow-frame (colorize @ic{λ is still hard} "firebrick")) (>= stage λhard)))
       (>= stage technical-debt))))
 
+  (define (rainbow-rect w h left-col right-col)
+    (define (get-rgb c) (values (send c red) (send c green) (send c blue)))
+    (define-values (lr lg lb) (get-rgb left-col))
+    (define-values (rr rg rb) (get-rgb right-col))
+    (define colorless (filled-rectangle 1 h))
+    (define boxes
+      (for/list ([i (in-range w)])
+        (define n (/ i w))
+        (colorize colorless (make-object color%
+                                         (mkei (lerp lr rr n))
+                                         (mkei (lerp lg rg n))
+                                         (mkei (lerp lb rb n))))))
+    (apply hc-append 0 boxes))
+
+  (define/staged false-dichotomy #:stages [mk-spectrum point-to-static point-to-dynamic
+                                                       plug-phil symbolic
+                                                       its-all-symbolic which-symbols]   
+    #:title (wkt (with-size 60 @t{False dichotomy}))
+    #:anim-at [mk-spectrum #:steps 10]
+    (define static (with-size 60 @ic{Static}))
+    (define dynamic (with-size 60 @ic{Dynamic}))
+    (define sw (pict-width static))
+    (define sh (pict-height static))
+    (define dw (pict-width dynamic))
+    (define SW2 (/ SCREEN-WIDTH 2))
+    (define starting-width 1)
+    (define left-pad 15)
+    (define lr-pad 5)
+    (define right-pad 50)
+    (define (spec n*)
+      (define n (fast-end n*))
+      (define static-placement (- (+ sw lr-pad)))
+      (define static-left (lerp static-placement (+ (- SW2) left-pad) n))
+      (define dynamic-left (lerp starting-width (- SW2 dw starting-width right-pad) n))
+      (define static-right (+ static-left (- static-placement)))
+      (define rectw (max 0 (- dynamic-left static-right)))
+      (define to-blue (make-object color% 0 0 (mkei (lerp 0 255 n))))
+      (define to-red (make-object color% (mkei (lerp 0 255 n)) 0 0))
+      (define spectrum (rainbow-rect rectw sh to-blue to-red))
+      (pin-over
+       (pin-over spectrum static-placement 0
+                 (colorize static to-blue))
+       rectw 0 (colorize dynamic to-red)))
+    (cond [(= stage mk-spectrum) spec]
+          [else
+           (define base (spec 1))
+           (define no-runtime (with-size 40 @ic{No runtime context}))
+           (define all-runtime (with-size 40 @ic{All runtime context}))
+           (define-values (sx sy) (cb-find base (list static)))
+           (define-values (dx dy) (cb-find base (list dynamic)))
+           (define left-arrow
+             (pin-arrow-line 15
+                             (pin-over-hcenter base 0 (+ sy 50) no-runtime)
+                             no-runtime ct-find static cb-find))
+           (define right-arrow
+             (pin-arrow-line 15
+                             (pin-over-hcenter left-arrow (- dx 75) (+ dy 50) all-runtime)
+                             all-runtime ct-find dynamic cb-find))
+           (define (mk-phil)
+             (define phil (shadow-frame (force phil-pict)))
+             (pin-over right-arrow 0 (- (/ (pict-height phil) 2)) phil))
+           (cond 
+            [(= stage point-to-static) left-arrow]
+            [(= stage point-to-dynamic) right-arrow]
+            [(= stage plug-phil) (mk-phil)]
+            [else
+             (cc-superimpose
+              (mk-phil)
+              (show (shadow-frame (colorize @ic{“Symbolic execution”}
+                                            "firebrick"))
+                    (>= stage symbolic))
+              (show (rotate (shadow-frame (hc-append gap-size (colorize @iic{All} "midnight blue")
+                                                     @ic{computation is}
+                                                     (colorize @ic{symbolic} "firebrick")))
+                            (/ pi 6))
+                    (>= stage its-all-symbolic))
+              (show (rotate (shadow-frame
+                             (hc-append gap-size @iic{Which} (colorize @ic{symbols?} "firebrick")))
+                            (- (/ pi 6)))
+                    (>= stage which-symbols)))])]))
+
+  
   ;; TODO
-  ;; Not arguing for static only. Dynamic can work -- cite Phil.
   ;; We have a recipe for respecting the stack. 
 
 
-  (define (run-talk [sections '(intro features slow motivation recap
-                                      outline lazy abscomp deltas
-                                      evaluation wrapup)]
+  (define (run-talk [sections '(intro features spectrum)]
                     #:deltas? [deltas? #t]
                     #:main-font [main-font "LModern"])
     (parameterize ([current-main-font main-font])
       (define-syntax-rule (section name body ...) (when (memv 'name sections) body ...))
       (section intro
-               ;(title)
+               (title)
                (run-stages what-do-I-do)
                (run-stages regehr))
 
       (section features
                (run-stages whiskey)
                ;;(run-stages disclaimer)
-               ))))
+               )
+
+      (section spectrum
+               (run-stages false-dichotomy)))))
 
 (module+ main
   (require (submod ".." slide-deck))
