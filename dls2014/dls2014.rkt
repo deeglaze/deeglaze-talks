@@ -48,6 +48,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 
 (define (ct s) (text s "Cantarell" (current-font-size)))
 (define (cbt s) (text s (cons 'bold "Cantarell") (current-font-size)))
+(define (cit s) (text s (cons 'italic "Cantarell") (current-font-size)))
 
 (define (ic s) (text s "Inconsolata" (current-font-size)))
 (define (iic s) (text s (cons 'italic "Inconsolata") (current-font-size)))
@@ -73,7 +74,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 
 (define-runtime-path grinder-small-path "../icfp2013/grinder_small.png")
 (define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
-(define-runtime-path redex-path "plt-redex.jpeg")
+(define-runtime-path redex-path "../icfp2013/plt-redex.jpeg")
 (define-runtime-path regehr-path "regehr.png")
 
 (define-runtime-path forbidden-path "forbidden.svg")
@@ -113,7 +114,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 (define (svg->pict path [α 1.0]) (svg-file->pict path α))
 
 (module+ utils
-  (provide bracket-left bracket-right fewer-col faster-col mkei)
+  (provide bracket-left bracket-right fewer-col faster-col mkei rainbow-rect)
   (define fewer-col "medium forest green")
   (define faster-col "slateblue")
   (define ((bracket superimpose) width height brack-height)
@@ -127,12 +128,25 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
     (if (inexact? n*)
         (inexact->exact n*)
         n*))
+  (define (rainbow-rect w h left-col right-col)
+    (define (get-rgb c) (values (send c red) (send c green) (send c blue)))
+    (define-values (lr lg lb) (get-rgb left-col))
+    (define-values (rr rg rb) (get-rgb right-col))
+    (define colorless (filled-rectangle 1 h))
+    (define boxes
+      (for/list ([i (in-range w)])
+        (define n (/ i w))
+        (colorize colorless (make-object color%
+                                         (mkei (lerp lr rr n))
+                                         (mkei (lerp lg rg n))
+                                         (mkei (lerp lb rb n))))))
+    (apply hc-append 0 boxes))
   (define bracket-right (bracket rt-superimpose))
   (define bracket-left (bracket lt-superimpose)))
 
 (module+ slide-deck
 
-  (provide title what-do-I-do regehr whiskey
+  (provide title what-do-I-do regehr whiskey false-dichotomy
            ;; main function
            run-talk
            )
@@ -162,7 +176,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                   @ct{College Park, MD, USA})))))))))
 
   (define/staged what-do-I-do #:stages [sounds-abstract delim aam static not-really abstract]
-    #:anim-at [sounds-abstract #:steps 10]
+    #:anim-at [sounds-abstract #:steps 10 #:skip-last]
     #:anim-at [delim #:steps 10 #:skip-first] ;; slide from left "abstract control"
     #:anim-at [aam #:steps 10 #:skip-first] ;; slide from right "abstracting abstract machines"
     (define sounds (with-size 72 @kt{“Sounds abstract”}))
@@ -171,7 +185,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                         #:y-translate (lerp (- (/ (pict-height sounds) 2))
                                             (- (/ SCREEN-HEIGHT 2))
                                             n)))
-    
+
     (define delimp (shadow-frame (force delim-pict)))
     (define aamp (shadow-frame (force aam-pict)))
     (define (mk-delim n)
@@ -185,9 +199,9 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
       (pin-over-vcenter
        (mk-delim 1)
        0 35 (cc-superimpose aamp
-                       (show (cc-superimpose analysis
-                                             (show (svg->pict forbidden-path 8)
-                                                   (>= stage not-really))) txt?))
+                       (show (pin-over analysis 80 -25
+                                       (show (svg->pict forbidden-path 8)
+                                             (>= stage not-really))) txt?))
        #:x-translate (lerp (/ SCREEN-WIDTH 2) 5 n)))
     (cond
      [(= stage sounds-abstract)
@@ -214,17 +228,17 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
            (shadow-frame
             (hc-append gap-size
                        (cc-superimpose
-                        (show (colorize @it{any} "red") (= stage any-lang))
-                        (show (colorize @it{some} "midnight blue") (= stage some-lang)))
+                        (show (colorize @ct{any} "red") (= stage any-lang))
+                        (show (colorize @ct{some} "midnight blue") (= stage some-lang)))
                        (hc-append 0
-                                  @t{dynamic language}
-                                  (show @t{s} (= stage some-lang)))))
+                                  @ct{dynamic language}
+                                  (show @ct{s} (= stage some-lang)))))
            (> stage base))
           (shadow-frame
            (hc-append gap-size
-                      (colorize @it{some parts} "red") @t{of}
-                      (colorize @it{some} "midnight blue")
-                      @t{dynamic languages}))))
+                      (colorize @ct{some parts} "red") @ct{of}
+                      (colorize @ct{some} "midnight blue")
+                      @ct{dynamic languages}))))
     (define p (bitmap regehr-path))
     (define pinned
       (pin-over
@@ -252,13 +266,13 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
     #:title (wkt @titlet{Whiskey features})
     (cc-superimpose
      (table 5
-            (list @ct{70s} 
+            (list @ct{70s}
                   (show @ct{80s} (>= stage 80s))
                   (show @ct{90s} (>= stage 90s))
                   (show @ct{2000s} (>= stage 2000s))
                   (show @ct{now} (>= stage now))
 
-                  @kt{Things}
+                  @kt{Arrays}
                   (show @ct{λ} (>= stage 80s))
                   (show @ct{Polymorphism} (>= stage 90s))
                   (show @tg{Eval} (>= stage 2000s))
@@ -287,25 +301,13 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                  (show (shadow-frame (colorize @ic{λ is still hard} "firebrick")) (>= stage λhard)))
       (>= stage technical-debt))))
 
-  (define (rainbow-rect w h left-col right-col)
-    (define (get-rgb c) (values (send c red) (send c green) (send c blue)))
-    (define-values (lr lg lb) (get-rgb left-col))
-    (define-values (rr rg rb) (get-rgb right-col))
-    (define colorless (filled-rectangle 1 h))
-    (define boxes
-      (for/list ([i (in-range w)])
-        (define n (/ i w))
-        (colorize colorless (make-object color%
-                                         (mkei (lerp lr rr n))
-                                         (mkei (lerp lg rg n))
-                                         (mkei (lerp lb rb n))))))
-    (apply hc-append 0 boxes))
-
-  (define/staged false-dichotomy #:stages [mk-spectrum point-to-static point-to-dynamic
+  (define/staged false-dichotomy #:stages [mk-spectrum point-to-static
+                                                       spin know-more
                                                        plug-phil symbolic
-                                                       its-all-symbolic which-symbols]   
+                                                       its-all-symbolic which-symbols]
     #:title (wkt (with-size 60 @t{False dichotomy}))
     #:anim-at [mk-spectrum #:steps 10]
+    #:anim-at [spin #:steps 20]
     (define static (with-size 60 @ic{Static}))
     (define dynamic (with-size 60 @ic{Dynamic}))
     (define sw (pict-width static))
@@ -316,9 +318,9 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
     (define left-pad 15)
     (define lr-pad 5)
     (define right-pad 50)
+    (define static-placement (- (+ sw lr-pad)))
     (define (spec n*)
       (define n (fast-end n*))
-      (define static-placement (- (+ sw lr-pad)))
       (define static-left (lerp static-placement (+ (- SW2) left-pad) n))
       (define dynamic-left (lerp starting-width (- SW2 dw starting-width right-pad) n))
       (define static-right (+ static-left (- static-placement)))
@@ -333,25 +335,73 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
     (cond [(= stage mk-spectrum) spec]
           [else
            (define base (spec 1))
-           (define no-runtime (with-size 40 @ic{No runtime context}))
-           (define all-runtime (with-size 40 @ic{All runtime context}))
+           (define less-runtime (with-size 40 @ic{Know less about context}))
+           (define more-runtime (with-size 40 @ic{Know more about context}))
            (define-values (sx sy) (cb-find base (list static)))
            (define-values (dx dy) (cb-find base (list dynamic)))
-           (define left-arrow
-             (pin-arrow-line 15
-                             (pin-over-hcenter base 0 (+ sy 50) no-runtime)
-                             no-runtime ct-find static cb-find))
-           (define right-arrow
-             (pin-arrow-line 15
-                             (pin-over-hcenter left-arrow (- dx 75) (+ dy 50) all-runtime)
-                             all-runtime ct-find dynamic cb-find))
+           (define left-startθ 0.1)
+           (define left-endθ (- pi 0.1))
+           (define left-startp (blank 0))
+           (define left-endp (blank 0))
+           (define right-startθ (+ pi 0.1))
+           (define right-endθ -0.1)
+           (define right-startp (blank 0))
+           (define right-endp (blank 0))
+           (define radius (/ (+ (pict-width base) (/ (+ lr-pad static-placement sw dw) 2)) 2))
+           (define (pinθ θ base p)
+             (pin-over base
+                       (+ (* radius (cos θ)) (/ (pict-width base) 2))
+                       (+ (* radius (sin θ)) (/ (pict-height base) 2)) p))
+           (define less-text
+             (pin-over-hcenter base (+ 30 (/ (pict-width less-runtime) 2)) 175 less-runtime))
+           (define more-text
+             (pin-over-hcenter less-text (+ 30 (/ (pict-width more-runtime) 2)) -150 more-runtime))
+           (define (mk-arrows lr?)
+             (define pinned
+               (pinθ right-endθ
+                     (pinθ right-startθ
+                           (pinθ left-endθ (pinθ left-startθ (blank 0) left-startp) left-endp)
+                           right-startp)
+                     right-endp))
+             (define left-arrow
+               (pin-arrow-line 15
+                               pinned
+                               left-startp cb-find left-endp cb-find
+                               #:start-angle (- (/ pi 2))
+                               #:start-pull 0.5
+                               #:end-angle (/ pi 2)
+                               #:end-pull 0.5
+                               #:line-width 4))
+             (if lr?
+                 (pin-arrow-line 15
+                                       left-arrow
+                                       right-startp ct-find right-endp ct-find
+                                       #:start-angle (/ pi 2)
+                                       #:start-pull 0.5
+                                       #:end-angle (- (/ pi 2))
+                                       #:end-pull 0.5
+                                       #:line-width 4)
+                 left-arrow))
+           (define (mk-arrows-overlay lr?)
+             (cc-superimpose (if lr? more-text less-text) (mk-arrows lr?)))
+
            (define (mk-phil)
              (define phil (shadow-frame (force phil-pict)))
-             (pin-over right-arrow 0 (- (/ (pict-height phil) 2)) phil))
-           (cond 
-            [(= stage point-to-static) left-arrow]
-            [(= stage point-to-dynamic) right-arrow]
-            [(= stage plug-phil) (mk-phil)]
+             (pin-over (mk-arrows-overlay #t) 0 (- (/ (pict-height phil) 2)) phil))
+           (define the-more-you-know
+             (vc-append 0 (shadow-frame (colorize @ic{The more you know about unknowns}
+                                                  "firebrick"))
+                        (shadow-frame (colorize @ct{The more divergence you catch}
+                                                         "midnight blue"))
+                        (show (shadow-frame (colorize @ct{The more you verify} "forest green"))
+                                          (= stage plug-phil))))
+           (cond
+            [(= stage point-to-static) (mk-arrows-overlay #f)]
+            [(= stage spin) (λ (n) (cc-superimpose more-text (rotate (mk-arrows #t) (lerp 0 (- (* 2 pi)) n))))]
+            [(= stage know-more) (cc-superimpose
+                                  (cc-superimpose more-text (mk-arrows #t))
+                                  the-more-you-know)]
+            [(= stage plug-phil) (cc-superimpose (mk-phil) the-more-you-know)]
             [else
              (cc-superimpose
               (mk-phil)
@@ -368,12 +418,253 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                             (- (/ pi 6)))
                     (>= stage which-symbols)))])]))
 
-  
+  (define/staged what-good-symbols #:stages [continuations they-are-functions functions?
+                                                           symbols not-symbols good-abstraction]
+    (with-size 40
+     (vl-append gap-size
+                (vl-append 20
+                           (hc-append gap-size
+                                      @kt{What are good symbols for}
+                                      (colorize @kt{continuations?} "midnight blue"))
+                           (show (hc-append (blank 100)
+                                            @t{E[F[(shift k e)]] ↦ E[e{k := (λ (x) F[x])}]})
+                                 (>= stage they-are-functions)))
+                (show (hc-append gap-size @kt{What are good symbols for}
+                                 (hc-append 2 (colorize @kt{λ} "firebrick") @kt{s?}))
+                      (>= stage functions?))
+                (pict-if #:combine cc-superimpose (<= symbols stage not-symbols)
+                         (cc-superimpose
+                          (blank SCREEN-WIDTH 50)
+                          (show (hc-append gap-size
+                                           (colorize @ct{'κ} "midnight blue")
+                                           (colorize @ct{'λ} "firebrick"))
+                                (>= stage symbols))
+                          (show (svg->pict forbidden-path 8) (>= stage not-symbols)))
+                         (show (ht-append gap-size
+                                @cbt{Claim:}
+                                (vl-append
+                                 (hc-append gap-size @ct{A} @cit{good} @ct{abstract scheme})
+                                 (hc-append gap-size @ct{spans from} (colorize @ct{static} "blue")
+                                            @ct{to}
+                                            (colorize @ct{dynamic} "red"))))
+                               (>= stage good-abstraction))))))
+
+  (define letsλ (wkt @titlet{Let's talk about λ}))
+
+  (define/staged abstract-machines #:stages [[redex #:title (ghost letsλ)]
+                                             [cesk #:title (ghost letsλ)]
+                                             code environment store kont]
+    #:title letsλ
+    (define codep @it{code})
+    (define envp @it{environment})
+    (define storep @it{store})
+    (define kontp @it{kontinuation})
+    (define commasep @it{, })
+    (define tuple (hc-append (it "〈") codep commasep envp commasep storep commasep kontp (it "〉")))
+    (define code-elab (shadow-frame
+                       (vl-append
+                        @it{e ::= x}
+                        @it{∣ (e e)} @it{∣ (λ x e)})))
+    (define env-elab (shadow-frame (vl-append @it{ρ ::= [x ↦ a ...]}
+                                              @it{a ∈ Addr})))
+    (define store-elab (shadow-frame (vl-append @it{σ ::= [a ↦ v ...]}
+                                                @it{v ::= 〈(λ x e), ρ〉})))
+    (define kont-elab (shadow-frame (vl-append @it{κ ::= halt ∣ (push φ κ)}
+                                               @it{φ ::= (apL e ρ)}
+                                               @it{∣ (apR v)})))
+    (define ceskp
+      (shadow-frame
+       (with-size 32 (hc-append gap-size @ct{CESK} tuple))))
+    (define-values (cx cy) (cb-find ceskp (list codep)))
+    (define-values (ex ey) (cb-find ceskp (list envp)))
+    (define-values (sx sy) (cb-find ceskp (list storep)))
+    (define-values (kx ky) (cb-find ceskp (list kontp)))
+    (cc-superimpose
+     (vc-append (with-size 60 @kt{Abstract machines})
+                (scale (bitmap redex-path) 0.5))
+     (show (pin-over-hcenter
+            (pin-over-hcenter
+             (pin-over-hcenter
+              (pin-over-hcenter
+               ceskp
+               cx cy #:y-translate 50 (show code-elab (>= stage code)))
+              ex ey #:y-translate 200 (show env-elab (>= stage environment)))
+             sx sy #:y-translate 50 (show store-elab (>= stage store)))
+            kx ky #:y-translate 175 (show kont-elab (>= stage kont)))
+           (>= stage cesk))))
+
+  (define/staged pushdown-diagram #:stages [stepping]
+    #:title letsλ
+    #:anim-at [stepping #:steps 10 #:delay 1]
+    (define num-actions 10)
+    (define κ (with-size 60 @it{κ}))
+    (define φ (with-size 60 @it{φ}))
+    (define φ₀₁ (hc-append φ (with-size 30 @it{01})))
+    
+    (define lang (it "〈"))
+    (define rang (it "〉"))
+    (define block (rectangle (+ 5 (max (pict-width κ) (pict-width φ₀₁)))
+                             (+ 5 (max (pict-width κ) (pict-height φ₀₁)))))
+    (define kont (cc-superimpose block κ))
+    (define-values (actions max-κ)
+      (let mk ([actions-rev '()] [made 0] [i 0] [κ '()] [κ-size 0] [max-size 0])
+        (if (= made num-actions)
+            (values (apply vector (reverse actions-rev)) max-size)
+            (let try ()
+              (match (random 2)
+                ;; push
+                [0 (mk (cons `(+ ,i) actions-rev)
+                       (add1 made)
+                       (add1 i)
+                       (cons i κ)
+                       (add1 κ-size)
+                       (max (add1 κ-size) max-size))]
+                ;; pop
+                [1 (match κ
+                     [(cons φ κ*) (mk (cons `(- ,φ) actions-rev)
+                                      (add1 made)
+                                      i
+                                      κ*
+                                      (sub1 κ-size) 
+                                      max-size)]
+                     ['() (try)])]
+                 ;; ε
+                ;[2 (mk (cons 'ε actions-rev) (add1 made) i κ κ-size max-size)]
+                )))))
+
+    (define (apply-action κ a)
+      (match a
+        ['ε κ]
+        [`(+ ,i) (cons i κ)]
+        [`(- ,i) (match κ [(cons (== i) κ*) κ*] [_ (error 'apply-action "Bad action ~a" a)])]))
+
+    (define (apply-actions i)
+      (for/fold ([κ '()]) ([a (in-vector actions 0 i)])
+        (apply-action κ a)))
+
+    (define (render-frame i)
+      (cc-superimpose block (hc-append φ (with-size 30 (it (number->string i))))))
+    (define (render-kont κ)
+      (match κ
+        [(cons i κ*) (vc-append (render-frame i) (render-kont κ*))]
+        ['() kont]))
+
+    (define (CES i) (hb-append @it{CES} (with-size 30 (lb-superimpose
+                                                       (ghost (it "22"))
+                                                       (it (number->string i))))))
+    (define (step i)
+      (displayln max-κ)
+      (define konti (apply-actions i))
+      (define konti* (apply-action konti (vector-ref actions i)))
+      (define ς* (with-size 60
+                   (ht-append (hc-append (it " ↦ ") lang (CES (add1 i)) rang)
+                              (render-kont konti*))))
+      (panorama
+       (lt-superimpose
+        (ghost (apply vc-append (make-list (add1 max-κ) block)))
+        (with-size 60 (ht-append
+                       (hc-append lang (CES i) rang)
+                       (render-kont konti)
+                       (if (> i 0)
+                           ς*
+                           (ghost ς*)))))))
+    (λ (n) (step (min (sub1 num-actions) (mkei (* n num-actions))))))
+
+  (define/staged pushdown #:stages [λ fun-app decomposed fn-red
+                                      pop have-value fn-on-stack app-red
+                                      irrelevant irrelevant2 irrelevant3
+                                      relevant relevant2
+                                      fade-irrelevant call-it-bullet chuck on-return
+                                      finitize-addr boom]
+    #:title letsλ
+    #:anim-at [fade-irrelevant #:steps 10 #:skip-first]
+    (define cκ (colorize-if (>= stage irrelevant) @t{κ} "steelblue"))
+    (define cκ2 (pict-if (<= stage fade-irrelevant) cκ @t{•}))
+    (define cE (colorize-if (>= stage irrelevant) @it{E} "steelblue"))
+    (define future (colorize @t{e'} "orange red"))
+    (define contractum (colorize @it{e{x := v}} "green"))
+    (define bl (blank 0))
+    (define (fade-out n p)
+      (fade-pict n p (ghost p)))
+    (define (screen n)
+      (with-size 32
+        (vl-append
+         (fade-out n (hc-append
+                     (t "〈")
+                     (colorize-if (= stage fun-app) @t{(f e)} "orange red")
+                     (t " ρ σ ")
+                     cκ
+                     (t "〉 ↦ 〈")
+                     (colorize-if (= stage decomposed) @t{f} "green")
+                     (t " ρ σ (push ")
+                     (colorize-if (= stage decomposed) @t{(apL e ρ) } "green")
+                     cκ
+                     (t ")〉")))
+         (fade-out n (show (hc-append (blank 100) @it{E ::= (E e) ∣ (v E) ∣ []}) (>= stage fn-red)))
+         (show (hc-append
+                (t "〈")
+                (colorize-if (= stage have-value) @t{v} "orange red")
+                (t " σ (push ")
+                (colorize-if (= stage fn-on-stack) @t{(apR (λ x e) ρ') } "orange red")
+                cκ
+                (t ")〉 ↦ 〈")
+                (colorize-if (= stage app-red)
+                             @t{e ρ'[x ↦ a] σ[a ↦ v] }
+                             "green")
+                cκ2 (t "〉"))
+               (>= stage pop))
+         (pict-if (< stage chuck)
+                  (fade-out n (show (hc-append (blank 100)
+                                               cE @it{[((λ x e) v)] ↦ } cE
+                                               (it "[")
+                                               contractum
+                                               (it "]")) (>= stage app-red)))
+                  (hc-append gap-size @ct{Chuck} cκ @ct{in a table: }
+                             (hc-append @t{Ξ' := Ξ} (t "[")
+                                        cκ2 @t{ ↦ Ξ(•) ∪ } (t "{") cκ (t "}") (t "]"))))
+         (pict-if (< stage on-return)
+                  (fade-out n (show (hc-append gap-size
+                                               @ct{The contexts}
+                                               cκ
+                                               @ct{and}
+                                               cE
+                                               @ct{are irrelevant}) (>= stage irrelevant)))
+                  (hc-append gap-size @t{〈v σ •〉 ↦ } (hc-append (t "〈v σ ") cκ (t "〉"))
+                             @ct{where} cκ @ct{∈} @t{Ξ(•)}))
+         (fade-out n (show (hc-append gap-size @ct{If } (hc-append contractum @t{ ↦* } future)
+                                     (show
+                                      (hc-append gap-size @ct{then}
+                                                 (hc-append cE (it "[") contractum (it "] ↦* ") cE
+                                                            (it "[") future (it "]")))
+                                      (>= stage irrelevant3)))
+                          (>= stage irrelevant2)))
+         (fade-out n (show (hc-append (colorize @t{e} "green") @ct{, } (colorize @t{x} "green") @ct{, and } (colorize @t{v} "green") @ct{ are relevant})
+                          (>= stage relevant)))
+         (show (hc-append gap-size @ct{So} @t{〈e, x, v, ρ', σ〉} @ct{are relevant}
+                          (show (hc-append (ct "(") @ct{call it } cκ2 (ct ")"))
+                                (>= stage call-it-bullet)))
+               (>= stage relevant2)))))
+    (cond
+     [(< stage fade-irrelevant) (screen 0)]
+     [(= stage fade-irrelevant) screen]
+     [(< fade-irrelevant stage finitize-addr) (screen 1)]
+     [(>= stage finitize-addr)
+      (cc-superimpose (screen 1)
+                      (vc-append 30 (shadow-frame (colorize (hc-append @ct{Finitize } @it{Addr}) "steelblue"))
+                                 (show (shadow-frame (colorize @ct{Boom, pushdown analysis (the state space forms a DAG)} "firebrick"))
+                                       (>= stage boom))))]))
+
+  (define/staged continuations #:stages [what-if]
+    (with-size 60 @kt{What if we can capture the stack?}))
+
+  ;; CESK
+  ;; K is "stack-like"
+  ;; K is not "stack-like," but only sometimes.
   ;; TODO
-  ;; We have a recipe for respecting the stack. 
+  ;; We have a recipe for respecting the stack.
 
 
-  (define (run-talk [sections '(intro features spectrum)]
+  (define (run-talk [sections '(intro features spectrum the-paper)]
                     #:deltas? [deltas? #t]
                     #:main-font [main-font "LModern"])
     (parameterize ([current-main-font main-font])
@@ -389,10 +680,22 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                )
 
       (section spectrum
-               (run-stages false-dichotomy)))))
+               (run-stages false-dichotomy)
+               (run-stages what-good-symbols)
+               ;; We have a recipe for handling the stack precisely and abstractly.
+               )
+
+      (section the-paper
+               (run-stages abstract-machines)
+               (run-stages pushdown-diagram)
+               (run-stages pushdown)))))
 
 (module+ main
   (require (submod ".." slide-deck))
 
  (void (run-talk))
  '|That's all, folks!|)
+
+(module+ test
+  (require (submod ".." slide-deck))
+  (void (run-talk '(the-paper))))
