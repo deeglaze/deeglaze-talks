@@ -5,6 +5,7 @@ EXTERNAL DEPS:
 Packages (removable with racket-poppler? = #f and require poppler-main instead of racket-poppler):
 racket-poppler (raco pkg install racket-poppler)
 slideshow-helpers (raco pkg install git://github.com/ianj/slideshow-helpers#master)
+ (no longer rsvg : raco pkg install git://github.com/ianj/racket-rsvg#master)
 
 Libraries (removable with use-pdf? = #f):
 libpoppler
@@ -13,7 +14,6 @@ Fonts (free on fontsquirrel.com):
 Cantarell
 Kaushan Script
 Inconsolata
-Telegrama
 Respective
 
 Papers (removable dependency with use-pdf? = #f):
@@ -61,7 +61,6 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 (define (kt s) (text s "Kaushan Script" (current-font-size)))
 (define (kit s) (text s (cons 'italic "Kaushan Script") (current-font-size)))
 (define-syntax-rule (wkt . forms) (parameterize ([current-main-font "Kaushan Script"]) . forms))
-(define (tg s) (text s "Telegrama" (current-font-size)))
 
 (define bg-slide-assembler
   (lambda (title sep content)
@@ -79,7 +78,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 ;; Group faster/smaller better. Don't cover with popups
 
 (define-runtime-path grinder-small-path "../icfp2013/grinder_small.png")
-(define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
+(define-runtime-path logo-path "prl-plum-logos.png" )
 (define-runtime-path redex-path "../icfp2013/plt-redex.jpeg")
 (define-runtime-path regehr-path "regehr.png")
 (define-runtime-path swarm-path "swarm.png")
@@ -89,6 +88,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 (define-runtime-path akka-path "akka-logo.png")
 (define-runtime-path paddle-ball-path "paddle-ball.png")
 (define-runtime-path doggy-bag-path "doggy-bag.jpg")
+(define-runtime-path tangle-path "tangled-task-ball.jpg")
 
 
 (define-runtime-path forbidden8-path "forbidden8.png")
@@ -173,26 +173,27 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
        (cc-superimpose
         (bitmap logo-path)
         (vc-append
-         (with-size 45 (bold (colorize @ct{Abstracting Abstract Control} '(15 15 74))))
+         (with-size 60 (bold (colorize @ct{Abstracting Abstract Control} '(15 15 74))))
          (blank 40)
-         (with-size 24
+         (with-size 32
            (ht-append gap-size
                       (vc-append
                        (colorize @cbt{J. Ian Johnson} "navy")
-                       (small (tg "ianj@ccs.neu.edu"))
+                       (with-size 20 (ic "ianj@ccs.neu.edu"))
                        (blank-line)
-                       (vc-append @ct{Northeastern University}
-                                  @ct{Boston, MA, USA}))
+                       (with-size 28 (vc-append @ct{Northeastern University}
+                                                @ct{Boston, MA, USA})))
                       (vc-append
                        @ct{David Van Horn}
-                       (small (tg "dvanhorn@cs.umd.edu"))
+                       (with-size 20 (ic "dvanhorn@cs.umd.edu"))
                        (blank-line)
-                       (vc-append @ct{University of Maryland}
-                                  @ct{College Park, MD, USA})))))))))
+                       (with-size 28
+                        (vc-append @ct{University of Maryland}
+                                   @ct{College Park, MD, USA}))))))))))
 
-  (define/staged what-do-I-do #:stages [sounds-abstract delim aam static not-really abstract get-back-to-that]
+  (define/staged what-do-I-do #:stages [sounds-abstract delim aam static not-really abstract doing especially]
     #:anim-at [sounds-abstract #:steps 10 #:skip-last]
-    #:anim-at [delim #:steps 10 #:skip-first] ;; slide from left "abstract control"
+    #:anim-at [delim #:steps 10 #:skip-first #:skip-last] ;; slide from left "abstract control"
     #:anim-at [aam #:steps 10 #:skip-first] ;; slide from right "abstracting abstract machines"
     (define sounds (with-size 72 @kt{“Sounds abstract”}))
     (define (mk-title n)
@@ -229,17 +230,19 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                            (vc-append
                             (show
                              (shadow-frame
-                              (hc-append gap-size
-                                         (colorize @iic{Really} "firebrick")
-                                         @ic{semantics of abstract execution}))
+                              (hc-append gap-size @cit{Really} @ct{semantics of abstract execution}))
                              (>= stage abstract))
                             (show
                              (shadow-frame
-                              (hc-append gap-size (colorize @ic{But we'll get back to that} "midnight blue")))
-                             (>= stage get-back-to-that))))]))
+                              (hc-append gap-size @ct{How do we understand what programs are} @cit{doing?}))
+                             (>= stage doing))
+                            (show
+                             (shadow-frame (hc-append gap-size @ct{Especially with} @cit{continuations}))
+                             (>= stage especially))))]))
 
   ;; Point at parts of John Regehr's tweet
   (define/staged regehr #:stages [base any-lang some-lang some-parts]
+    #:title (wkt @titlet{Is there hope?})
     (define bash (blank 0))
     (define start (blank 0))
     (define any
@@ -248,24 +251,25 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
            (shadow-frame
             (hc-append gap-size
                        (cc-superimpose
-                        (show (colorize @ct{any} "red") (= stage any-lang))
-                        (show (colorize @ct{some} "midnight blue") (= stage some-lang)))
+                        (show @cit{any} (= stage any-lang))
+                        (show @cit{some} (= stage some-lang)))
                        (hc-append 0
                                   @ct{dynamic language}
                                   (show @ct{s} (= stage some-lang)))))
            (> stage base))
           (shadow-frame
            (hc-append gap-size
-                      (colorize @ct{some features} "red") @ct{of}
-                      (colorize @ct{some} "midnight blue")
+                      @cit{some features} @ct{of}
+                      @cit{some}
                       @ct{dynamic languages}))))
-    (define p (bitmap regehr-path))
+    (define α 1.6)
+    (define p (scale (bitmap regehr-path) α))
     (define pinned
       (pin-over
        (pin-over
         (pin-over
          p
-         248 203
+         (* α 248) (* α 203)
          bash)
         (if (< stage some-parts)
             -35
@@ -292,11 +296,11 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                   (show @ct{2000s} (>= stage 2000s))
                   (show @ct{now} (>= stage now))
 
-                  @kt{Arrays}
+                  @ct{Arrays}
                   (show @ct{λ} (>= stage 80s))
                   (show @ct{Polymorphism} (>= stage 90s))
-                  (show @tg{Eval} (>= stage 2000s))
-                  (show @tg{Eval} (>= stage now))
+                  (show @ic{eval} (>= stage 2000s))
+                  (show @ic{eval} (>= stage now))
 
                   (blank 0)
                   (blank 0)
@@ -317,8 +321,8 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                   (show @ct{Continuations?} (>= stage now)))
             cc-superimpose cc-superimpose gap-size gap-size)
      (show
-      (vc-append (shadow-frame (colorize @ic{We have some technical debt} "midnight blue"))
-                 (show (shadow-frame (colorize @ic{λ is still hard} "firebrick")) (>= stage λhard)))
+      (vc-append (shadow-frame @ct{We have some technical debt})
+                 (show (shadow-frame @ct{λ is still hard}) (>= stage λhard)))
       (>= stage technical-debt))))
 
   (define/staged false-dichotomy #:stages [mk-spectrum point-to-static point-to-dynamic
@@ -410,29 +414,27 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
              (define phil (shadow-frame (force phil-pict)))
              (pin-over (mk-arrows-overlay #t) 0 (- (/ (pict-height phil) 2)) phil))
            (define the-more-you-know
-             (vc-append 0 (shadow-frame (colorize @ic{The more you know about unknowns}
-                                                  "firebrick"))
-                        (shadow-frame (colorize @ct{The more divergence you catch}
-                                                "midnight blue"))
-                        (show (shadow-frame (colorize @ct{The more you verify} "forest green"))
+             (vc-append 0 (shadow-frame @ct{The more you know about unknowns})
+                        (shadow-frame @ct{The more divergence you catch})
+                        (show (shadow-frame @ct{The more you verify})
                               (= stage plug-phil))))
            (cond
             [(= stage point-to-static) (mk-arrows-overlay #f)]
             [(= stage point-to-dynamic) (mk-arrows-overlay #t)]
             [(<= example0 stage example4)
              (define Z @it{ℤ})
-             (define factZ (hc-append @tg{fact } Z))
-             (define factZ2 (hc-append @tg{fact } Z))
+             (define factZ (hc-append @ic{fact } Z))
+             (define factZ2 (hc-append @ic{fact } Z))
              (define ex-pict
                (shadow-frame
                 (vl-append
-                 @tg{fact 0 = 1}
-                 @tg{fact n = n * fact (n - 1)}
+                 @ic{fact 0 = 1}
+                 @ic{fact n = n * fact (n - 1)}
                  (blank 20)
                  (show (hc-append (ghost @it{↦ }) factZ) (>= stage example1))
-                 (show (hc-append @it{↦ } @tg{1}) (>= stage example2))
-                 (show (hc-append @it{↦ } Z (tg " * fact (") Z (tg " - 1)")) (>= stage example2))
-                 (show (hc-append @it{= } Z @tg{ * } factZ2) (>= stage example3)))))
+                 (show (hc-append @it{↦ } @ic{1}) (>= stage example2))
+                 (show (hc-append @it{↦ } Z (ic " * fact (") Z (ic " - 1)")) (>= stage example2))
+                 (show (hc-append @it{= } Z @ic{ * } factZ2) (>= stage example3)))))
              (define ex-pict-arrow
                (pin-arrow-line 15 ex-pict factZ2 cb-find factZ rc-find
                                #:start-angle (/ pi -16)
@@ -453,16 +455,15 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
             [else
              (cc-superimpose
               (mk-phil)
-              (show (shadow-frame (colorize @ic{“Symbolic execution”}
-                                            "firebrick"))
+              (show (shadow-frame @ct{“Symbolic execution”})
                     (>= stage symbolic))
-              (show (rotate (shadow-frame (hc-append gap-size (colorize @iic{All} "midnight blue")
-                                                     @ic{computation is}
-                                                     (colorize @ic{symbolic} "firebrick")))
+              (show (rotate (shadow-frame (hc-append gap-size @cit{All}
+                                                     @ct{computation is}
+                                                     @ct{symbolic}))
                             (/ pi 6))
                     (>= stage its-all-symbolic))
               (show (rotate (shadow-frame
-                             (hc-append gap-size @iic{Which} (colorize @ic{symbols?} "firebrick")))
+                             (hc-append gap-size @cit{Which} @ct{symbols?}))
                             (- (/ pi 6)))
                     (>= stage which-symbols)))])]))
 
@@ -475,19 +476,19 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                  (vl-append 20
                             (hc-append gap-size
                                        @kt{What are good symbols for}
-                                       (colorize @kt{continuations?} "midnight blue"))
+                                       (colorize @kt{continuations?} "steelblue"))
                             (show (hc-append (blank 100)
                                              shift-rule)
                                   (>= stage they-are-functions)))
                  (show (hc-append gap-size @kt{What are good symbols for}
-                                  (hc-append 2 (colorize @kt{λ} "firebrick") @kt{s?}))
+                                  (hc-append 2 (colorize @kt{λ} "orange red") @kt{s?}))
                        (>= stage functions?))
                  (pict-if #:combine cc-superimpose (<= symbols stage not-symbols)
                           (cc-superimpose
                            (blank SCREEN-WIDTH 50)
                            (show (hc-append gap-size
-                                            (colorize @ct{'κ} "midnight blue")
-                                            (colorize @ct{'λ} "firebrick"))
+                                            (colorize @ct{'κ} "steelblue")
+                                            (colorize @ct{'λ} "orange red"))
                                  (>= stage symbols))
                            (show (bitmap forbidden8-path) (>= stage not-symbols)))
                           (show (ht-append gap-size
@@ -500,7 +501,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                 (>= stage good-abstraction))))))
 
   (define letsλ (wkt @titlet{Let's talk about λ}))
-  
+
   ;; Abstract machines are a good target because they're runnable, close to how we might write VMs,
   ;; and have easily abstractable components.
   (define/staged abstract-machines #:stages [[redex #:title (ghost letsλ)]
@@ -547,18 +548,21 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 
   (define/staged pushdown-diagram #:stages [stepping]
     #:title letsλ
-    #:anim-at [stepping #:steps 10 #:delay 1]
+    #:anim-at [stepping #:steps 10 #:delay 0.6]
     (define num-actions 10)
     (define κ (with-size 60 @it{κ}))
     (define φ (with-size 60 @it{φ}))
     (define φ₀₁ (hc-append φ (with-size 30 @it{01})))
-    
+
     (define lang (it "〈"))
     (define rang (it "〉"))
     (define block (rectangle (+ 5 (max (pict-width κ) (pict-width φ₀₁)))
                              (+ 5 (max (pict-width κ) (pict-height φ₀₁)))))
     (define kont (cc-superimpose block κ))
     (define-values (actions max-κ)
+      (values #((+ 0) (+ 1) (+ 2) (- 2) (- 1) (+ 3) (- 3) (+ 4) (+ 5) (- 5))
+              3)
+      #;
       (let mk ([actions-rev '()] [made 0] [i 0] [κ '()] [κ-size 0] [max-size 0])
         (if (= made num-actions)
             (values (apply vector (reverse actions-rev)) max-size)
@@ -577,7 +581,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                       (add1 made)
                                       i
                                       κ*
-                                      (sub1 κ-size) 
+                                      (sub1 κ-size)
                                       max-size)]
                      ['() (try)])]
                 ;; ε
@@ -621,6 +625,78 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                            ς*
                            (ghost ς*)))))))
     (λ (n) (step (min (sub1 num-actions) (mkei (* n num-actions))))))
+
+  (define/staged pushdown-example #:stages [transducer
+                                            list
+                                            list->list
+                                            view-filter
+                                            reduce show-backlink control-flow]
+    #:title (wkt @titlet{Clojure Transducers})
+    ;; can't break into multiple lines since code uses newline info
+    (define base
+      (with-size 30
+       (code (#,(tag-pict (code sequence) 'seq) #,(tag-pict (code (comp #,(tag-pict (code (filter even?)) 'filter) #,(tag-pict (code (map inc)) 'map))) 'trans) #,(tag-pict (code (range 10)) 'rng)))))
+    (define (hilight b tag)
+      (define path (find-tag b tag))
+      (define p (first path))
+      (define-values (x y) (cc-find b path))
+      (pin-under-center b x y
+                        (colorize
+                         (filled-flash (* 3/2 (pict-width p))
+                                       (* 3/2 (pict-height p))
+                                       10 0.25 0)
+                         "yellow")))
+    (define (hilight-and-point base tag txt x-ofs y-ofs [below? #t] #:find [finder cb-find])
+      (define h (hilight base tag))
+      (define path (find-tag h tag))
+      (define-values (x y) (finder h path))
+      (define pinned (pin-over h (+ x x-ofs) (+ y y-ofs) txt))
+      (pin-arrow-line 15 pinned
+                      txt (if below?
+                              (λ (p pt)
+                                 (define-values (x y) (ct-find p pt))
+                                 (values x (+ y 15)))
+                              (λ (p pt)
+                                 (define-values (x y) (cb-find p pt))
+                                 (values x (- y 60))))
+                      path (if below? cb-find ct-find)))
+    (define lst-txt (shadow-frame (hc-append gap-size @ic{List} @ct{collection})))
+    (define lst-obj (hilight-and-point base 'rng lst-txt -170 20))
+    (define reduce-update-txt
+      (shadow-frame @ct{Functionally update object protocol}))
+    (define point (hilight-and-point lst-obj 'trans reduce-update-txt -80 -220 #f))
+    (define coll-pict
+      (with-size 20
+        (code (reify clojure.core.protocols/CollReduce
+                (coll-reduce [_ f1 init]
+                             (#,(tag-pict (code clojure.core.protocols/coll-reduce) 'coll-reduce)
+                              coll
+                              (fn [ret v] (if (even? v) (f1 ret v) ret))
+                              init))))))
+    (define filter-txt
+      (shadow-frame (if (>= stage show-backlink)
+                        (hilight coll-pict 'coll-reduce)
+                        coll-pict)))
+    (define filter-point
+      (hilight-and-point point 'filter filter-txt -230 120))
+    (define reduce-pict
+      (hilight-and-point filter-point
+                         'seq (shadow-frame @ct{Invoke reducer to build new list})
+                         -30 -350 #f))
+    (define red-arrow
+      (pin-arrow-line 15
+                      reduce-pict
+                      (find-tag reduce-pict 'coll-reduce) ct-find
+                      (find-tag reduce-pict 'map) cb-find
+                      #:line-width 4
+                      #:color "red"))
+    (cond [(= stage transducer) base]
+          [(= stage list) lst-obj]
+          [(= stage list->list) point]
+          [(= stage view-filter) filter-point]
+          [(= stage reduce) reduce-pict]
+          [(= stage show-backlink) red-arrow]
+          [(= stage control-flow) (cc-superimpose red-arrow (scale (bitmap tangle-path) 0.5))]))
 
   (define/staged pushdown #:stages [λ fun-app decomposed fn-red
                                       pop have-value fn-on-stack app-red
@@ -705,11 +781,9 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
        (cc-superimpose
         (screen 1)
         (vc-append 30
-                   (shadow-frame (colorize (hc-append @ct{Finitize } @it{Addr}) "steelblue"))
+                   (shadow-frame (hc-append @ct{Finitize } @it{Addr}))
                    (show (shadow-frame
-                          (colorize
-                           @ct{Boom, pushdown analysis (the state space forms a DAG)}
-                           "firebrick"))
+                          @ct{Boom, pushdown analysis (the state space forms a DAG)})
                          (>= stage boom))))
        (show @cit{[Vardoulakis & Shivers 2011]} (= stage boom)))]))
 
@@ -717,7 +791,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
     (vc-append gap-size
                (with-size 60 (hc-append gap-size
                                         @kt{What if “the stack” isn't a}
-                                        (colorize @kit{stack} "firebrick")
+                                        @kit{stack}
                                         @kt{?}))
                (show shift-rule (>= stage good-friend))))
 
@@ -760,9 +834,57 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
         300 300 (scale (bitmap typesafe-path) .3))
        300 -200 (scale (bitmap akka-path) .1))]))
 
+  (define/staged continuation-example #:stages [produce consume sum shifted circular]
+    #:anim-at [shifted #:steps 10]
+    (define each
+      (vl-append
+       (code (define (enumerate t)
+               (reset (let L ([t t])
+                        (if (leaf? t)
+                            (shift r (cons t (delay (r '()))))
+                            (for-each L t))))))
+       (show
+        (code (define (fold f init l)
+                (match l
+                  [(cons (leaf x) prm)
+                   (f x (fold f init (force prm)))]
+                  [_ init])))
+        (>= stage consume))
+       (show
+        (code (fold + 0
+                    (enumerate (list (list (leaf 1))
+                                     (leaf 2)
+                                     (list (leaf 3)
+                                           (list (leaf 4)))))))
+        (>= stage sum))))
+    (define bad @ct{σ[ra ↦ (comp •)]})
+    (define σ0 (ct "σ"))
+    (define σ1 (ct "σ'"))
+    (define bad-unf (hc-append σ0 (ct "[ra ↦ ( comp 〈e, ρ, ") σ1 (ct "〉)]")))
+    (cond
+     [(= stage shifted)
+      (λ (n) (cc-superimpose each (shadow-frame (fade-pict n bad bad-unf))))]
+     [(= stage circular)
+      (define arrowed
+        (pin-arrow-line 15
+                        (pin-arrow-line 15
+                                        (shadow-frame bad-unf)
+                                        σ0 cb-find σ1 cb-find
+                                        #:start-angle (/ pi -2) #:start-pull .6
+                                        #:end-angle (/ pi 2) #:end-pull .6
+                                        #:line-width 3
+                                        #:color "red")
+                        σ1 ct-find σ0 ct-find
+                        #:start-angle (/ pi 2) #:start-pull .6
+                        #:end-angle (/ pi -2) #:end-pull .6
+                        #:line-width 3
+                        #:color "red"))
+      (cc-superimpose each arrowed)]
+     [else each]))
+
   (define/staged how-continuations #:stages [what-do-we-do? cesk->ceskc reset shift]
     (vc-append gap-size
-     (hc-append gap-size @t{reset} @ct{introduces a} (colorize @cit{meta-stack} "firebrick"))
+     (hc-append gap-size @t{reset} @ct{introduces a} @cit{meta-stack})
      (show @t{〈e, ρ, σ, κ〉 ⇒ 〈e, ρ, σ, κ, C〉} (>= stage cesk->ceskc))
      (show @t{〈(reset e) ρ σ κ C〉 ↦ 〈e ρ σ halt κ∘C〉} (>= stage reset))
      (show @t{〈(shift k e) ρ σ κ C〉 ↦ 〈e ρ[k ↦ a] σ[a ↦ (comp κ)] halt C〉} (>= stage shift))))
@@ -780,10 +902,10 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
         (vc-append (* 2 (current-gap-size))
          (vl-append
           (* 2 (current-gap-size))
-          (colorize @ct{Delimit computations by relevant state} "forest green")
-          (show (colorize @ct{Abstract captured “relevance” with an address} "midnight blue")
+          @ct{Delimit computations by relevant state}
+          (show @ct{Abstract captured “relevance” with an address}
                 (>= stage if-capture))
-          (show (colorize @ct{Break cycles in state space with addresses} "firebrick")
+          (show @ct{Break cycles in state space with addresses}
                 (>= stage make-space-dag)))
          (show (with-size 80 @thanks{Thank you}) (>= stage thank-you)))))
      25 -130 (scale (bitmap doggy-bag-path) 0.3)))
@@ -815,6 +937,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                )
 
       (section paper1
+               (run-stages pushdown-example)
                (run-stages abstract-machines)
                (run-stages pushdown-diagram)
                (run-stages pushdown))
@@ -822,7 +945,9 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
       (section paper2
                (run-stages intro-continuations)
                (run-stages why-continuations)
-               (run-stages how-continuations))
+               (run-stages continuation-example)
+               (slide
+                @ct{Todo: explain what we do}))
       (section conclusion
                (run-stages takeaway)))))
 
