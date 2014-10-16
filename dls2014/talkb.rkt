@@ -26,6 +26,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 (require (except-in unstable/gui/slideshow stage)
          (for-syntax syntax/parse)
 ;         rsvg
+         (only-in 2htdp/planetcute speech-bubble)
          images/logos
          slideshow-helpers/picts
          slideshow-helpers/slide
@@ -89,7 +90,9 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 (define-runtime-path paddle-ball-path "paddle-ball.png")
 (define-runtime-path doggy-bag-path "doggy-bag.jpg")
 (define-runtime-path tangle-path "tangled-task-ball.jpg")
-
+(define-runtime-path grinder-path "../icfp2013/grinder.png")
+(define-runtime-path cousot-path "cousot.png")
+(define-runtime-path canyon-path "grand-canyon.jpg")
 
 (define-runtime-path forbidden8-path "forbidden8.png")
 (define-runtime-path forbidden16-path "forbidden16.png")
@@ -261,6 +264,127 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
      [(= stage delim) (compose mk-delim fast-start)]
      [(= stage other-papers) (compose mk-others fast-start)]))
 
+  (define/staged why-aam
+    #:stages [interpreter why-abs-int examples unit-interpreter could-be-concrete]
+    #:title (wkt @titlet{Abstracting Abstract Machines})
+    (define intp @ct{Interpreter})
+    (define absp (frame (inset @ct{Abstract interpreter} 20)
+                        #:color (if (>= stage unit-interpreter)
+                                    "black"
+                                    "white")))
+    (define alloc @ct{Allocator})
+    (define grind (bitmap grinder-path))
+    (define in-point (blank 0))
+    (define out-point (blank 0))
+    ;; grinder in and out points
+    (define-values (in-x in-y) (values 170 7))
+    (define-values (out-x out-y) (values 367 133))
+    (define pinned (pin-over
+                    (pin-over grind out-x out-y out-point)
+                    in-x in-y in-point))
+    (define in-out
+      (pin-over-hcenter
+       (pin-over-vcenter
+        (pin-over-hcenter pinned in-x -100 intp)
+        (+ 50 out-x) out-y absp)
+       (+ 50 out-x (/ (pict-width absp) 2))
+       (- out-y 150)
+       (show alloc (>= stage unit-interpreter))))
+    (define arrows
+      (panorama
+       (pin-arrow-line 15
+                       (pin-arrow-line 15
+                                       in-out intp cb-find in-point ct-find #:line-width 3)
+                       out-point rc-find absp lc-find #:line-width 3)))
+    (define arrows2
+      (pin-arrow-line 15
+        arrows 
+         alloc cb-find absp ct-find #:line-width 3))
+    (define α 0.5)
+    (define cousot (frame (scale (bitmap cousot-path) α)))
+    (define words @ct{Everything is an abstract interpretation!})
+    (define mouth-x (* α 397))
+    (define mouth-y (* α 245))
+    (define saying
+      (panorama (pin-balloon (wrap-balloon words 'sw -40 50) cousot mouth-x mouth-y)))
+    (define (pin-cousot base)
+      (pin-over base -120 365
+                (pin-over saying
+                          400 65
+                          (show
+                           (vl-append 3
+                                      @ct{Static analysis}
+                                      @ct{Symbolic evaluator}
+                                      @ct{Termination/productivity analysis}
+                                      @ct{White-box fuzzer})
+                           (= stage examples)))))
+    (cond [(= stage interpreter) arrows]
+          [(<= why-abs-int stage examples) (pin-cousot arrows)]
+          [(= stage unit-interpreter) arrows2]
+          [(= stage could-be-concrete)
+           (pin-arrow-line 15 arrows2 absp rc-find intp rc-find
+                           #:start-angle 0
+                           #:end-angle pi
+                           #:start-pull 0.5
+                           #:end-pull 0.75
+                           #:line-width 3)]))
+
+  (define (what-is-aam)
+    (define α 0.8)
+    (pin-over (blank SCREEN-WIDTH SCREEN-HEIGHT)
+              -20 -20
+              (cc-superimpose (filled-rectangle SCREEN-WIDTH SCREEN-HEIGHT)
+                                 (pin-over-center (scale (bitmap canyon-path) α) (* α 707) (* α 295)
+                                                  (scale (bitmap grinder-path) 0.1)))))
+  (define heap-slogan (with-size 60 @kt{Heap-allocate recursion}))
+  (define/staged what-is-aam2 #:stages [what-does-it-do abs-step
+                                        [slogan #:title heap-slogan]
+                                        [cont-zoom #:title heap-slogan]
+                                        [old-cont #:title heap-slogan]
+                                        [new-cont #:title heap-slogan]
+                                        [old-heap #:title heap-slogan]
+                                        [new-heap #:title heap-slogan]]
+    #:title (ghost heap-slogan)
+    (define (hat p)
+      (ct-superimpose p (ct "^")))
+    (define small-grind (scale (bitmap grinder-path) 0.15))
+    (define step-progress
+      (panorama
+       (with-size 60
+         (hc-append @ct{s ↦ s'}
+                    (show (hc-append small-grind
+                                     (hat @ct{s}) @ct{ }
+                                     (hat @ct{↦}) @ct{ }
+                                     (hat @ct{s}) @ct{'})
+                          (>= stage abs-step))))))
+    (with-size 60
+     (vc-append gap-size             
+                (pict-if #:combine rb-superimpose (< stage slogan)
+                         step-progress
+                         (pin-balloon (wrap-balloon (with-size 30 @ct{〈code, heap, cont〉}) 'se 5 20)
+                                      step-progress 0 45))
+                (show @ct{cont : List[Activation-Frame]} (>= stage cont-zoom))
+                (show (hc-append @ct{cons :}
+                                 (hc-append @ct{X -> }
+                                            (pict-if (= stage old-cont)
+                                                     @ct{List[X]}
+                                                     (colorize @ct{Addr} "firebrick"))
+                                            @ct{ -> List[X]}))
+                      (>= stage old-cont))
+                (show (hc-append @ct{heap : }
+                                 (hc-append (ct "Map[Addr, ")
+                                            (pict-if (= stage old-heap)
+                                                     @ct{Value}
+                                                     (colorize @ct{Set[Value]} "firebrick"))
+                                            (ct "]")))
+                      (>= stage old-heap))
+                (show (hc-append @ct{h[a ↦ v]}
+                                 small-grind
+                                 (colorize @ct{h[a ↦ h(a) ∪ {v}]} "firebrick"))
+                      (= stage new-heap)))))
+  
+;  (define/staged why-not-aam #:stages [abstracts-too-much])
+
   (define shift-rule (with-size 40 @t{E[F[(shift k e)]] ↦ E[e{k := (λ (x) F[x])}]}))
 
   (define/staged intro-continuations #:stages [what-if good-friend]
@@ -309,6 +433,48 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
          -50 400 (bitmap hekate-path))
         300 300 (scale (bitmap typesafe-path) .3))
        300 -200 (scale (bitmap akka-path) .1))]))
+
+  (define/staged toy-continuation #:stages [toy shift-meaning
+                                            stack stack-fun stack-run
+                                            what-evaluated k-means subst-k beta result]
+    #:title shift-rule
+    (define shift-stack
+      (pin-over (rectangle 30 200)
+                0 95 (cc-superimpose (rectangle 30 20) @ic{#})))
+    (define brack-k
+      (pin-over
+       (pin-over shift-stack 35 0 (bracket-right 10 100 5))
+       50 30 @ct{now a function}))
+    (define run-point (blank 0))
+    (define run @ct{run from here})
+    (define runy 120)
+    (define pointed
+      (pin-arrow-line 10
+                      (pin-over-vcenter
+                       (pin-over brack-k 30 runy run-point)
+                       50 runy run)
+                      run lc-find run-point rc-find))
+    (pin-over
+     (vl-append gap-size
+                (blank 50)
+                @ic{(+ 10 (reset (+ 2 (shift k (+ 40 (k (k 3)))))))}
+                (show (hc-append 0 @ic{  }
+                                 (show (ic "k = (λ (x) ") (>= stage k-means))
+                                 (ic "(+ 2 ")
+                                   (pict-if #:combine cc-superimpose
+                                            (>= stage k-means) @ic{x} @ic{[]})
+                                 (ic ")")
+                                 (show (ic ")") (>= stage k-means))) 
+                      (>= stage shift-meaning))
+                (pict-cond
+                 [(<= what-evaluated stage k-means) @ic{(+ 10 (+ 40 (k (k 3))))}]
+                 [(= stage subst-k) @ic{(+ 10 (+ 40 ((λ (x) (+ 2 x)) ((λ (x) (+ 2 x)) 3))))}]
+                 [(>= stage beta) @ic{(+ 10 (+ 40 (+ 2 (+ 2 3))))}])
+                (show @ic{57} (= stage result)))
+     300 -150 (show (pict-cond [(= stage stack) shift-stack]
+                               [(= stage stack-fun) brack-k]
+                               [(>= stage stack-run) pointed])
+                    (<= stack stage))))
 
   (define/staged continuation-example #:stages [produce consume sum shifted circular
                                                 kill-example move-frame
@@ -422,7 +588,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
   ;; TODO
   ;; We have a recipe for respecting the stack.
 
-  (define (run-talk [sections '(intro sounds why paper2 conclusion)]
+  (define (run-talk [sections '(intro sounds why why-aam toy paper2 conclusion)]
                     #:main-font [main-font "LModern"])
     (parameterize ([current-main-font main-font])
       (define-syntax-rule (section name body ...) (when (memv 'name sections) body ...))
@@ -430,8 +596,38 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                (title))
       (section sounds
                (run-stages what-do-I-do))
+
+      (section why-aam
+               (run-stages why-aam)
+               (slide (what-is-aam))
+               (run-stages what-is-aam2)
+               #|
+               AAM is this great way of easily (& correctly!) turning your language interpreter
+               into an abstract interpreter (and back again!)
+               |#
+               (slide
+                (hc-append @ct{Say we have some function } (code f))
+                'next
+                @ct{We wrap it to validate its input and output}
+                'next
+                (code (λ (j)
+                         (if (good-json? j)
+                             (let ([r (f j)])
+                               (if (good-html? r)
+                                   r
+                                   (blame 'f)))
+                             (blame 'user))))
+                'next
+                (code (document.write `(p ,(read-request f) 
+                                          ,(read-request f))))
+                'next
+                (hc-append @ct{The second call to } (code f) @ct{ in } (code read-request)
+                           @ct{ returns to both calls})))
+
       (section why
                (run-stages why-continuations))
+      (section toy
+               (run-stages toy-continuation))
 
       (section paper2
                (run-stages intro-continuations)
@@ -447,4 +643,4 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 
 (module+ test
   (require (submod ".." slide-deck))
-  (void (run-talk '(sounds))))
+  (void (run-talk '(why-aam))))
