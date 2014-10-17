@@ -23,6 +23,56 @@ Abstracting Control (locally as "abstracting-control.pdf")
 Soft Contract Verification (locally as "soft-contract-verification.pdf")
 |#
 
+
+#|
+Talk outline:
+
+New outline:
++ I'm improving the AAM framework's treatment of control structure to better handle constructs like return flow and shift/reset.
++ AAM is this great way of easily (& correctly!) turning your language interpreter into an abstract interpreter (and back again!)
+- It's great, but control structure is ruined. [example*] Function calls have bad return flow and continuations break down pretty hard.
++ You may not think continuations matter, but they do!
++ [little example** showing what shift/reset do]
++ The one big idea in this talk is relevance delimiters.
++ [return to example and illustrate relevance]
++ The mantra of AAM is "break recursive structure with heap allocation"
+- What happens when we do that with relevance delimiters?
+- We can't make a big split like with Xi, since chi is still relevant!
+- Well, throw chi back in. [example***] Cyclic! Crap!
+- Solution: squash chis together and have one parent chi.
+- Example works now
+- What can't we do, and what do we want to do?
++ Takeaway
+
+* main example of bad return flow and bad continuation flow
+I'm having a difficult time paring this down
+
+f is json -> html
+Say f is wrapped to validate input and output.
+ (λ (j)
+   (if (good-json? j)
+     (let ([r (f j)])
+       (if (good-html? r)
+           r
+           (blame 'f)))
+     (blame 'user)))
+And we have a server that uses continuations to relieve callback hell
+ (document.write `(p ,(read-request f) ,(read-request f)))
+
+ (define (read-request f)
+  (shift k
+   (switch-to-evt-loop-until
+     (read-request-evt f)
+     k)))
+
+AAM would have the wrapped calls to f return back in time,
+and the shifted continuations would flow backward too.
+Why is this bad? Wiggly control flow means more impossible situations are reported as possible errors.
+Tangled control flow graphs mean bad termination analysis (useful for inductive proofs).
+
+|#
+
+
 (require (except-in unstable/gui/slideshow stage)
          (for-syntax syntax/parse)
 ;         rsvg
@@ -226,7 +276,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
       (inset
        (inset
         (frame (cc-superimpose
-                (colorize (filled-rectangle (pict-width p*) (pict-height p*)) "white")  
+                (colorize (filled-rectangle (pict-width p*) (pict-height p*)) "white")
                 p*)
                #:color "gray")
         4.0 0 4.0 46.0)
@@ -248,7 +298,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
        #:x-translate (lerp (/ SCREEN-WIDTH 2) 5 n)))
     (define aamx (- (pict-width aamp)))
     #|slide in GC paper, CM paper and CFA2 paper|#
-    (define offscreen (blank 0))    
+    (define offscreen (blank 0))
     (define placement
       (pin-over
        (pin-over
@@ -256,7 +306,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
          (pin-over (mk-delim 1) 5 SCREEN-HEIGHT offscreen)
          5 -200 (ghost gcp))
         5 -96 (ghost cmp))
-       5 55 (ghost cfa2p)))
+       5 54 (ghost cfa2p)))
     (define mk-others (slide-and-compose placement is offscreen))
     (cond
      [(= stage sounds-abstract) (compose mk-title fast-start)]
@@ -298,7 +348,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                        out-point rc-find absp lc-find #:line-width 3)))
     (define arrows2
       (pin-arrow-line 15
-        arrows 
+        arrows
          alloc cb-find absp ct-find #:line-width 3))
     (define α 0.5)
     (define cousot (frame (scale (bitmap cousot-path) α)))
@@ -313,7 +363,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                           400 65
                           (show
                            (vl-append 3
-                                      @ct{Static analysis}
+                                      @ct{Flow analysis}
                                       @ct{Symbolic evaluator}
                                       @ct{Termination/productivity analysis}
                                       @ct{White-box fuzzer})
@@ -358,7 +408,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                      (hat @ct{s}) @ct{'})
                           (>= stage abs-step))))))
     (with-size 60
-     (vc-append gap-size             
+     (vc-append gap-size
                 (pict-if #:combine rb-superimpose (< stage slogan)
                          step-progress
                          (pin-balloon (wrap-balloon (with-size 30 @ct{〈code, heap, cont〉}) 'se 5 20)
@@ -382,8 +432,196 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                  small-grind
                                  (colorize @ct{h[a ↦ h(a) ∪ {v}]} "firebrick"))
                       (= stage new-heap)))))
-  
-;  (define/staged why-not-aam #:stages [abstracts-too-much])
+
+  (define call0 "darkgreen")
+  (define call1 "cadet blue")
+  (define call-ctx0 (colorize (filled-ellipse 20 20) call0))
+  (define call-ctx1 (colorize (filled-ellipse 20 20) call1))
+  (define (why-not-picts show-delim wrap? use? show-block?)
+    (define codes
+      (vl-append gap-size
+                 (show
+                  (code (λ #,(tag-pict (code (j)) 'entry)
+                           (if (good-json? j)
+                               (let ([r #,(tag-pict (code (f j)) 'f-call)])
+                                 (if (good-html? r)
+                                     #,(tag-pict (code r) 'return)
+                                     (blame 'f)))
+                               (blame 'user))))
+                  wrap?)
+                 (show
+                  (code (document.write `(p ,#,(tag-pict (code (read-request f)) 'read0)
+                                            ,#,(tag-pict (code (read-request f)) 'read1))))
+                  use?)
+                 (show
+                  (if (pict? show-block?)
+                      show-block?
+                      (hc-append (code read-request)
+                                 @ct{ blocks until json is read, then calls }
+                                 (code f)))
+                  (not (not show-block?)))))
+    (pin-over-vcenter codes (find-tag codes 'entry) rc-find
+                      (hc-append 5
+                                 (show call-ctx0
+                                       (and (number? show-delim) (>= show-delim 0)))
+                                 (show call-ctx1
+                                       (and (number? show-delim) (>= show-delim 1))))))
+
+  (define/staged why-not-aam
+    #:stages [say wrap use line0 line1 line2 line3 line4 cycle proper]
+    (define cycol (if (= stage cycle) "red" "black"))
+    (define cycol1 (cond [(= stage cycle) "red"]
+                         [(= stage proper) call0]
+                         [else "black"]))
+    (define propcol0 (if (= stage proper) call0 "black"))
+    (define propcol1 (cond [(= stage proper) call1]
+                           [(= stage cycle) "red"]
+                           [else "black"]))
+    (define propcol2 (if (= stage proper) call1 "black"))
+    (define codes (why-not-picts #f (>= stage wrap) (>= stage use) (>= stage use)))
+    (define read0->call
+      (pin-arrow-line 15 codes (find-tag codes 'read0) rc-find (find-tag codes 'f-call) ct-find
+                      #:start-angle (* 1/6 pi)
+                      #:end-angle (* -1/3 pi)
+                      #:start-pull 0.4 #:end-pull 0.8
+                      #:line-width 3 #:color propcol0))
+    (define call->ret
+      (pin-arrow-line 15 read0->call
+                      (find-tag codes 'f-call) cb-find
+                      (find-tag codes 'return) lc-find
+                      #:start-angle (* 1/6 pi)
+                      #:end-angle 0
+                      #:start-pull 0.2 #:end-pull 0.7
+                      #:line-width 3 #:color cycol))
+    (define ret->read0
+      (pin-arrow-line 15 call->ret (find-tag codes 'return) rc-find (find-tag codes 'read0) ct-find
+                      #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
+                      #:line-width 3
+                      #:color cycol1))
+    (define read1->call
+      (pin-arrow-line 15 ret->read0
+                      (find-tag codes 'read1) rc-find
+                      (find-tag codes 'f-call) ct-find
+                      #:start-angle (* 1/6 pi)
+                      #:end-angle (* -1/3 pi)
+                      #:start-pull 0.4
+                      #:end-pull 0.8
+                      #:line-width 3 #:color propcol1))
+    (define ret->read1
+      (pin-arrow-line 15 read1->call (find-tag codes 'return) rc-find (find-tag codes 'read1) ct-find
+                      #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
+                      #:line-width 3 #:color propcol2))
+
+    (vl-append gap-size
+               (hc-append @ct{Say we have some function } (code f : json -> html))
+               (show @ct{We wrap it to validate its input and output} (>= stage wrap))
+               (cond [(<= stage use) codes]
+                     [(= stage line0) read0->call]
+                     [(= stage line1) call->ret]
+                     [(= stage line2) ret->read0]
+                     [(= stage line3) read1->call]
+                     [(<= line4 stage proper) ret->read1])))
+
+  (define/staged fix-aam
+    #:stages [revisit first-call second-call]
+    (define codes (why-not-picts (and (> stage revisit) (sub1 stage)) #t #t #f))
+    (define ctx (ic "Context = ["))
+    (define close (ic "]"))
+    (define call-map0 (hc-append call-ctx0 (ic " ↦ {") (colorize (ic "cont") call0) (ic "}")))
+    (define call-map1  (hc-append call-ctx1 (ic " ↦ {") (colorize (ic "cont") call1) (ic "}")))
+    (define pin-ctx
+      (pin-over
+       (pin-over-vcenter
+        (pin-over-vcenter codes (find-tag codes 'read0) rc-find
+                          (tag-pict (show call-ctx0 (>= stage first-call)) 'ctx0))
+        (find-tag codes 'read1) rc-find (tag-pict (show call-ctx1 (>= stage second-call)) 'ctx1))
+       0 400 (cond
+              [(= stage revisit) (hc-append ctx close)]
+              [(= stage first-call) (hc-append ctx call-map0 close)]
+              [(= stage second-call) (hc-append ctx call-map0 (ic ", ") call-map1 close)])))
+    (define read0->call
+      (pin-arrow-line 15 pin-ctx (find-tag pin-ctx 'ctx0) rc-find (find-tag codes 'f-call) ct-find
+                      #:start-angle (* 1/6 pi)
+                      #:end-angle (* -1/3 pi)
+                      #:start-pull 0.4 #:end-pull 0.8
+                      #:line-width 3 #:color call0))
+    (define call->ret
+      (pin-arrow-line 15 read0->call
+                      (find-tag codes 'f-call) cb-find
+                      (find-tag codes 'return) lc-find
+                      #:start-angle (* 1/6 pi)
+                      #:end-angle 0
+                      #:start-pull 0.2 #:end-pull 0.7
+                      #:line-width 3))
+    (define ret->read0
+      (pin-arrow-line 15 call->ret (find-tag codes 'return) rc-find (find-tag pin-ctx 'read0) ct-find
+                      #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
+                      #:line-width 3
+                      #:color call0))
+    (define read1->call
+      (pin-arrow-line 15 ret->read0
+                      (find-tag pin-ctx 'ctx1) rc-find
+                      (find-tag codes 'f-call) ct-find
+                      #:start-angle (* 1/6 pi)
+                      #:end-angle (* -1/3 pi)
+                      #:start-pull 0.4
+                      #:end-pull 0.8
+                      #:line-width 3 #:color call1))
+    (define ret->read1
+      (pin-arrow-line 15 read1->call (find-tag codes 'return) rc-find (find-tag codes 'read1) ct-find
+                      #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
+                      #:line-width 3 #:color call1))
+
+    (cond [(= stage revisit) codes]
+          [(= stage first-call) ret->read0]
+          [(= stage second-call) ret->read1]))
+
+  (define/staged fix-zoom #:stages [AAM just-addrs relevance structure circular the-trick]
+    #:title (wkt @titlet{What's really going on here?})
+    (define h0 (ic "h"))
+    (define h1 (ic "h'"))
+    (define popup
+      (inset (hc-append h0 (ic "[〈c,") h1 (ic "〉 ↦ {cont}]")) 30))
+    (define popup* (if (>= stage circular)
+                       (pin-arrow-line 15
+                        (pin-arrow-line 15
+                                        popup
+                                        h0 cb-find h1 cb-find
+                                        #:start-angle (/ pi -2) #:start-pull .6
+                                        #:end-angle (/ pi 2) #:end-pull .6
+                                        #:line-width 3
+                                        #:color "red")
+                        h1 ct-find h0 ct-find
+                        #:start-angle (/ pi 2) #:start-pull .6
+                        #:end-angle (/ pi -2) #:end-pull .6
+                        #:line-width 3
+                        #:color "red")
+                       popup))
+    (vc-append 50
+     (vl-append gap-size
+                (hc-append @ct{AAM told us } @ic{cons : X -> Addr -> List[X]})
+                (show (hc-append @ct{Are } call-ctx0 @ct{ just fancy addresses?})
+                      (>= stage just-addrs))
+                (show
+                 (vl-append gap-size
+                            (hc-append @ct{States are } @ic{〈code heap stack〉} @ct{ and the stack is irrelevant})
+                            (hc-append call-ctx0 @ct{ is } @ic{〈code heap〉}))
+                 (>= stage relevance)))
+     (show popup* (>= stage structure))
+     (show (hc-append call-ctx0 @ct{ are stored in a stratified heap: Contexts})
+           (>= stage the-trick))))
+
+  (define/staged non-blocking-example #:stages [recall show-code]
+    (cc-superimpose
+     (why-not-picts #f #t #t
+                    (hc-append (code read-request) @ct{ uses non-blocking I/O}))
+     (show
+      (shadow-frame
+       (code (define (read-request f)
+               (shift k (evloop-until-evt
+                         (read-request-evt f)
+                         k)))))
+      (= stage show-code))))
 
   (define shift-rule (with-size 40 @t{E[F[(shift k e)]] ↦ E[e{k := (λ (x) F[x])}]}))
 
@@ -464,7 +702,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                    (pict-if #:combine cc-superimpose
                                             (>= stage k-means) @ic{x} @ic{[]})
                                  (ic ")")
-                                 (show (ic ")") (>= stage k-means))) 
+                                 (show (ic ")") (>= stage k-means)))
                       (>= stage shift-meaning))
                 (pict-cond
                  [(<= what-evaluated stage k-means) @ic{(+ 10 (+ 40 (k (k 3))))}]
@@ -475,92 +713,6 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                                [(= stage stack-fun) brack-k]
                                [(>= stage stack-run) pointed])
                     (<= stack stage))))
-
-  (define/staged continuation-example #:stages [produce consume sum shifted circular
-                                                kill-example move-frame
-                                                where-put intro-χ but-relevant give-up
-                                                abstraction-rule use-rule spans]
-    #:anim-at [shifted #:steps 10]
-    #:anim-at [kill-example #:steps 10 #:skip-first]
-    #:anim-at [move-frame #:steps 10]
-    (define each
-      (vl-append
-       (code (define (enumerate t)
-               (reset (let L ([t t])
-                        (if (leaf? t)
-                            (shift r (cons t (delay (r '()))))
-                            (for-each L t))))))
-       (show
-        (code (define (fold f init l)
-                (match l
-                  [(cons (leaf x) prm)
-                   (f x (fold f init (force prm)))]
-                  [_ init])))
-        (>= stage consume))
-       (show
-        (code (fold + 0
-                    (enumerate (list (list (leaf 1))
-                                     (leaf 2)
-                                     (list (leaf 3)
-                                           (list (leaf 4)))))))
-        (>= stage sum))))
-    (define bad @ct{σ[ra ↦ (comp •)]})
-    (define σ0 (ct "σ"))
-    (define σ1 (ct "σ'"))
-    (define bad-unf (hc-append σ0 (ct "[ra ↦ ( comp 〈e, ρ, ") (if (>= stage move-frame)
-                                                                   @ct{a}
-                                                                   σ1) (ct "〉)]")))
-    (define p (shadow-frame bad-unf))
-    (define frame-x (- (/ (pict-width each) 2) (/ (pict-width p) 2)))
-    (cond
-     [(= stage shifted)
-      (λ (n) (cc-superimpose each (shadow-frame (fade-pict n bad bad-unf))))]
-     [(= stage circular)
-      (define arrowed
-        (pin-arrow-line 15
-                        (pin-arrow-line 15
-                                        p
-                                        σ0 cb-find σ1 cb-find
-                                        #:start-angle (/ pi -2) #:start-pull .6
-                                        #:end-angle (/ pi 2) #:end-pull .6
-                                        #:line-width 3
-                                        #:color "red")
-                        σ1 ct-find σ0 ct-find
-                        #:start-angle (/ pi 2) #:start-pull .6
-                        #:end-angle (/ pi -2) #:end-pull .6
-                        #:line-width 3
-                        #:color "red"))
-      (cc-superimpose each arrowed)]
-     [(= stage kill-example)
-      (λ (n) (cc-superimpose (fade-out n each) p))]
-     [(= stage move-frame)
-      (λ (n) (pin-over (ghost each) frame-x
-                       (lerp (- (/ (pict-height each) 2)
-                                (/ (pict-height p) 2)) 0 (fast-start n))
-                       p))]
-     [(<= where-put stage spans)
-      (cc-superimpose
-       (pin-over (ghost each) frame-x 0
-                 (pin-over-hcenter
-                  p 200 175
-                  (vl-append gap-size
-                             (show @ct{Where do we put a?} (>= stage where-put))
-                             (show @ct{χ' := χ[a ↦ χ(a) ∪ {σ'}]} (>= stage intro-χ))
-                             (show @ct{But a is reachable from σ, so χ is relevant (• ≡ 〈e, ρ, σ, χ〉)} (>= stage but-relevant))
-                             (show @ct{Give up a bit and grow χ monotonically} (>= stage give-up))
-                             (show @ct{A(〈e, ρ, σ, χ'〉, χ, a) = (χ ⊔ χ' ⊔ [a ↦ {σ}], 〈e, ρ, a〉)}
-                                   (>= stage abstraction-rule))
-                             (show @ct{R(〈e, ρ, a〉, χ) = ⋃{Ξ(〈e, ρ, σ, χ'〉) : σ ∈ χ(a), χ' ⊑ χ}}
-                                   (>= stage use-rule)))))
-       (show (rotate
-              (shadow-frame (hc-append gap-size
-                                       @ct{Choice of allocator spans from}
-                                       (colorize @ct{static} "blue")
-                                       @ct{to}
-                                       (colorize @ct{dynamic} "red")))
-              (/ pi 16)) (= stage spans)))]
-     [else each]))
-
 
   (define/staged takeaway #:stages [delimit if-capture make-space-dag thank-you]
     #:title (wkt (with-size 60 @t{Takeaway}))
@@ -575,7 +727,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
         (vc-append (* 2 (current-gap-size))
          (vl-append
           (* 2 (current-gap-size))
-          @ct{Delimit computations by relevant state}
+          @ct{Delimit computations by relevant stater}
           (show @ct{Abstract captured “relevance” with an address}
                 (>= stage if-capture))
           (show @ct{Break cycles in state space with addresses}
@@ -588,7 +740,7 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
   ;; TODO
   ;; We have a recipe for respecting the stack.
 
-  (define (run-talk [sections '(intro sounds why why-aam toy paper2 conclusion)]
+  (define (run-talk [sections '(intro sounds why why-aam why-not the-one-idea toy non-blocking paper2 conclusion)]
                     #:main-font [main-font "LModern"])
     (parameterize ([current-main-font main-font])
       (define-syntax-rule (section name body ...) (when (memv 'name sections) body ...))
@@ -605,34 +757,31 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
                AAM is this great way of easily (& correctly!) turning your language interpreter
                into an abstract interpreter (and back again!)
                |#
-               (slide
-                (hc-append @ct{Say we have some function } (code f))
-                'next
-                @ct{We wrap it to validate its input and output}
-                'next
-                (code (λ (j)
-                         (if (good-json? j)
-                             (let ([r (f j)])
-                               (if (good-html? r)
-                                   r
-                                   (blame 'f)))
-                             (blame 'user))))
-                'next
-                (code (document.write `(p ,(read-request f) 
-                                          ,(read-request f))))
-                'next
-                (hc-append @ct{The second call to } (code f) @ct{ in } (code read-request)
-                           @ct{ returns to both calls})))
+               )
+      (section why-not
+               (run-stages why-not-aam))
+      (section the-one-idea
+               (slide (with-size 60 (vl-append @kt{Insight:}
+                                               @kt{delimit computations &}
+                                               @kt{catalog contexts by revelant state})))
+               (slide (vr-append 100
+                                 (ht-append (with-size 60 @kt{The stack doesn't matter}) @ct{*})
+                                 @ct{*yet}))
+               (run-stages fix-aam)
+               (run-stages fix-zoom))
 
       (section why
+               (run-stages intro-continuations)
                (run-stages why-continuations))
       (section toy
                (run-stages toy-continuation))
+      (section non-blocking
+               (run-stages non-blocking-example)
+               ;; TODO: what do we do with this example?
+               )
 
-      (section paper2
-               (run-stages intro-continuations)
-               (run-stages continuation-example))
       (section conclusion
+               ;; TODO: Why doesn't this print money? (future work)
                (run-stages takeaway)))))
 
 (module+ main
@@ -643,4 +792,4 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 
 (module+ test
   (require (submod ".." slide-deck))
-  (void (run-talk '(why-aam))))
+  (void (run-talk '(the-one-idea  why toy non-blocking-example))))
