@@ -389,6 +389,8 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
   (define heap-slogan (with-size 60 @kt{Heap-allocate recursion}))
   (define/staged what-is-aam2 #:stages [what-does-it-do abs-step
                                         [slogan #:title heap-slogan]
+                                        [slogan-graph0 #:title heap-slogan]
+                                        [slogan-graph1 #:title heap-slogan]
                                         [cont-zoom #:title heap-slogan]
                                         [old-cont #:title heap-slogan]
                                         [new-cont #:title heap-slogan]
@@ -407,31 +409,98 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
                                      (hat @ct{↦}) @ct{ }
                                      (hat @ct{s}) @ct{'})
                           (>= stage abs-step))))))
+    (define node0 (filled-ellipse 40 40))
+    (define node1 (filled-ellipse 40 40))
+    (define node2 (colorize (filled-ellipse 40 40) (if (= stage slogan-graph1) "red" "black")))
+    (define-values (node2-x node2-y) (values 240 210))
+    (define (graph-nodes tag0 tag2)
+      (pin-over-center
+       (pin-over-center
+        (pin-over-center (blank 255 300) 125 60 (tag-pict node0 tag0))
+        30 210 node1)
+       node2-x node2-y (tag-pict node2 tag2)))
+    (define (graph-base-arrows tag0 tag2)
+      (pin-arrow-line 15
+                      (pin-arrow-line 15 (graph-nodes tag0 tag2) node0 cb-find node1 ct-find
+                                      #:line-width 3)
+                      node0 cb-find node2 ct-find #:line-width 3))
+    (define back-arrow
+      (pin-arrow-line 15
+                      (graph-base-arrows 'node0 'node2) node2 rc-find node0 rc-find
+                      #:start-angle (* pi 1/6)
+                      #:start-pull 0.2
+                      #:end-angle pi
+                      #:end-pull 0.2
+                      #:line-width 3
+                      #:color (if (= stage slogan-graph1) "red" "black")
+                      #:style (if (= stage slogan-graph1) 'dot-dash 'solid)))
+    (define addr-text (colorize @ct{Addr} "red"))
+    (define addr-arrow
+      (pin-arrow-line 15
+                      (pin-over-vcenter back-arrow
+                                        (+ 60 node2-x) node2-y
+                                        (tag-pict addr-text 'naddr))
+                      node2 rc-find addr-text lc-find
+                      #:color "red"
+                      #:style 'dot
+                      #:line-width 3
+                      #:hide-arrowhead? #t))
+    (define (with-heap base show?)
+      (define scaled (scale (graph-base-arrows 'dummy 'ignore) 0.2))
+      (define h
+        (pin-over base 210 30
+                  (show
+                   (hc-append (ct "heap[") (tag-pict addr-text 'haddr)
+                              (ct " ↦ {")
+                              scaled (ct "}]"))
+                   show?)))
+      (if show?
+          (pin-arrow-line
+           15
+           (pin-arrow-line 15 h (find-tag h 'node2) rc-find (find-tag h 'haddr) cb-find
+                           #:color "red" #:line-width 3)
+           scaled ct-find (find-tag h 'node0) ct-find
+           #:line-width 3 #:color "red"
+           #:start-angle (* 2/3 pi)
+           #:start-pull 0.1
+           #:end-angle (* 5/4 pi)
+           #:end-pull 0.1)
+          h))
     (with-size 60
-     (vc-append gap-size
-                (pict-if #:combine rb-superimpose (< stage slogan)
-                         step-progress
-                         (pin-balloon (wrap-balloon (with-size 30 @ct{〈code, heap, cont〉}) 'se 5 20)
-                                      step-progress 0 45))
-                (show @ct{cont : List[Activation-Frame]} (>= stage cont-zoom))
-                (show (hc-append @ct{cons :}
-                                 (hc-append @ct{X -> }
-                                            (pict-if (= stage old-cont)
-                                                     @ct{List[X]}
-                                                     (colorize @ct{Addr} "firebrick"))
-                                            @ct{ -> List[X]}))
-                      (>= stage old-cont))
-                (show (hc-append @ct{heap : }
-                                 (hc-append (ct "Map[Addr, ")
-                                            (pict-if (= stage old-heap)
-                                                     @ct{Value}
-                                                     (colorize @ct{Set[Value]} "firebrick"))
-                                            (ct "]")))
-                      (>= stage old-heap))
-                (show (hc-append @ct{h[a ↦ v]}
-                                 small-grind
-                                 (colorize @ct{h[a ↦ h(a) ∪ {v}]} "firebrick"))
-                      (= stage new-heap)))))
+      (cc-superimpose
+       (vc-append gap-size
+                  (pict-if #:combine rb-superimpose (< stage slogan)
+                           step-progress
+                           (pin-balloon (wrap-balloon (with-size 30 @ct{〈code, heap, cont〉}) 'se 5 20)
+                                        step-progress 0 45))
+                  (show @ct{cont : List[Activation-Frame]} (>= stage cont-zoom))
+                  (show (hc-append @ct{cons :}
+                                   (hc-append @ct{X -> }
+                                              (pict-if (= stage old-cont)
+                                                       @ct{List[X]}
+                                                       (colorize @ct{Addr} "firebrick"))
+                                              @ct{ -> List[X]}))
+                        (>= stage old-cont))
+                  (show (hc-append @ct{heap : }
+                                   (hc-append (ct "Map[Addr, ")
+                                              (pict-if (= stage old-heap)
+                                                       @ct{Value}
+                                                       (colorize @ct{Set[Value]} "firebrick"))
+                                              (ct "]")))
+                        (>= stage old-heap))
+                  (show (hc-append @ct{h[a ↦ v]}
+                                   small-grind
+                                   (colorize @ct{h[a ↦ h(a) ∪ {v}]} "firebrick"))
+                        (= stage new-heap)))
+       (show (shadow-frame (cc-superimpose
+                            (blank 600 300)
+                            (panorama
+                             (with-heap
+                              (if (= stage slogan-graph0)
+                                  back-arrow
+                                  addr-arrow)
+                              (= stage slogan-graph1)))))
+             (<= slogan-graph0 stage slogan-graph1)))))
 
   (define call0 "darkgreen")
   (define call1 "cadet blue")
@@ -576,6 +645,21 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
           [(= stage first-call) ret->read0]
           [(= stage second-call) ret->read1]))
 
+  (define (cyclic base left right)
+    (pin-arrow-line 15
+                    (pin-arrow-line 15
+                                    base
+                                    left cb-find right cb-find
+                                    #:start-angle (/ pi -2) #:start-pull .6
+                                    #:end-angle (/ pi 2) #:end-pull .6
+                                    #:line-width 3
+                                    #:color "red")
+                    right ct-find left ct-find
+                    #:start-angle (/ pi 2) #:start-pull .6
+                    #:end-angle (/ pi -2) #:end-pull .6
+                    #:line-width 3
+                    #:color "red"))
+
   (define/staged fix-zoom #:stages [AAM just-addrs relevance structure circular the-trick]
     #:title (wkt @titlet{What's really going on here?})
     (define h0 (ic "h"))
@@ -583,19 +667,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
     (define popup
       (inset (hc-append h0 (ic "[〈c,") h1 (ic "〉 ↦ {cont}]")) 30))
     (define popup* (if (>= stage circular)
-                       (pin-arrow-line 15
-                        (pin-arrow-line 15
-                                        popup
-                                        h0 cb-find h1 cb-find
-                                        #:start-angle (/ pi -2) #:start-pull .6
-                                        #:end-angle (/ pi 2) #:end-pull .6
-                                        #:line-width 3
-                                        #:color "red")
-                        h1 ct-find h0 ct-find
-                        #:start-angle (/ pi 2) #:start-pull .6
-                        #:end-angle (/ pi -2) #:end-pull .6
-                        #:line-width 3
-                        #:color "red")
+                       (cyclic popup h0 h1)
                        popup))
     (vc-append 50
      (vl-append gap-size
@@ -611,17 +683,39 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
      (show (hc-append call-ctx0 @ct{ are stored in a stratified heap: Contexts})
            (>= stage the-trick))))
 
-  (define/staged non-blocking-example #:stages [recall show-code]
-    (cc-superimpose
-     (why-not-picts #f #t #t
-                    (hc-append (code read-request) @ct{ uses non-blocking I/O}))
-     (show
-      (shadow-frame
-       (code (define (read-request f)
-               (shift k (evloop-until-evt
-                         (read-request-evt f)
-                         k)))))
-      (= stage show-code))))
+  (define/staged non-blocking-example #:stages [recall show-code unfold problem stratify]
+    #:anim-at [unfold #:steps 10]
+    (define h0 @ct{h})
+    (define h1 @ct{h'})
+    (define store-pict0
+      (hc-append (ct "h[ka ↦ {(cons φ ") call-ctx0 (ct ")}]")))
+    (define store-pict1
+      (hc-append h0 (ct "[ka ↦ {(cons φ 〈c,") h1 (ct "〉)}]")))
+    (define (mk n)
+      (cc-superimpose
+       (why-not-picts #f #t #t
+                      (hc-append (code read-request) @ct{ uses non-blocking I/O}))
+       (show
+        (vc-append
+         (shadow-frame
+          (code (define (read-request f)
+                  (shift k (evloop-until-evt
+                            (read-request-evt f)
+                            k)))))
+         (show (shadow-frame
+                (if (>= stage problem)
+                    (cyclic store-pict1 h0 h1)
+                    (fade-pict n store-pict0 store-pict1)))
+               (>= stage unfold)))
+        (>= stage show-code))))
+    (cond 
+     [(< stage unfold) (mk 0)]
+     [(= stage unfold) mk]
+     [(> stage unfold)
+      (cc-superimpose
+       (mk 1)
+       (show (rotate (shadow-frame @ct{Can we stratify like with Contexts?}) (/ pi 16))
+             (= stage stratify)))]))
 
   (define shift-rule (with-size 40 @t{E[F[(shift k e)]] ↦ E[e{k := (λ (x) F[x])}]}))
 
@@ -777,7 +871,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
                (run-stages toy-continuation))
       (section non-blocking
                (run-stages non-blocking-example)
-               ;; TODO: what do we do with this example?
+               ;; Can't stratify: why? What do we do instead?
                )
 
       (section conclusion
@@ -792,4 +886,4 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
 
 (module+ test
   (require (submod ".." slide-deck))
-  (void (run-talk '(the-one-idea  why toy non-blocking-example))))
+  (void (run-talk '(non-blocking))))
