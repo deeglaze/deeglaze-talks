@@ -27,48 +27,26 @@ Soft Contract Verification (locally as "soft-contract-verification.pdf")
 #|
 Talk outline:
 
-New outline:
 + I'm improving the AAM framework's treatment of control structure to better handle constructs like return flow and shift/reset.
 + AAM is this great way of easily (& correctly!) turning your language interpreter into an abstract interpreter (and back again!)
-- It's great, but control structure is ruined. [example*] Function calls have bad return flow and continuations break down pretty hard.
 + You may not think continuations matter, but they do!
-+ [little example** showing what shift/reset do]
+</motivation>
+- AAM's great, but control structure is ruined.
++ The mantra of AAM is "break recursive structure with heap allocation"
++ Example: Function calls have bad return flow
 + The one big idea in this talk is relevance delimiters.
 + [return to example and illustrate relevance]
-+ The mantra of AAM is "break recursive structure with heap allocation"
-- What happens when we do that with relevance delimiters?
-- We can't make a big split like with Xi, since chi is still relevant!
-- Well, throw chi back in. [example***] Cyclic! Crap!
-- Solution: squash chis together and have one parent chi.
+</function calls>
++ Does this work for continuations?
++ [little example** showing what shift/reset do]
++ Example with continuations
++ What happens when capture relevance delimiters?
++ We can't make a big split like with Xi, since chi is still relevant!
++ Well, throw chi back in. [example***] Cyclic! Crap!
++ Solution: squash chis together and have one parent chi.
 - Example works now
 - What can't we do, and what do we want to do?
 + Takeaway
-
-* main example of bad return flow and bad continuation flow
-I'm having a difficult time paring this down
-
-f is json -> html
-Say f is wrapped to validate input and output.
- (λ (j)
-   (if (good-json? j)
-     (let ([r (f j)])
-       (if (good-html? r)
-           r
-           (blame 'f)))
-     (blame 'user)))
-And we have a server that uses continuations to relieve callback hell
- (document.write `(p ,(read-request f) ,(read-request f)))
-
- (define (read-request f)
-  (shift k
-   (switch-to-evt-loop-until
-     (read-request-evt f)
-     k)))
-
-AAM would have the wrapped calls to f return back in time,
-and the shifted continuations would flow backward too.
-Why is this bad? Wiggly control flow means more impossible situations are reported as possible errors.
-Tangled control flow graphs mean bad termination analysis (useful for inductive proofs).
 
 |#
 
@@ -143,6 +121,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
 (define-runtime-path grinder-path "../icfp2013/grinder.png")
 (define-runtime-path cousot-path "cousot.png")
 (define-runtime-path canyon-path "grand-canyon.jpg")
+(define-runtime-path wadler-path "wadler.jpg")
 
 (define-runtime-path forbidden8-path "forbidden8.png")
 (define-runtime-path forbidden16-path "forbidden16.png")
@@ -315,7 +294,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
      [(= stage other-papers) (compose mk-others fast-start)]))
 
   (define/staged why-aam
-    #:stages [interpreter why-abs-int examples unit-interpreter could-be-concrete]
+    #:stages [interpreter why-abs-int examples unit-interpreter could-be-concrete you-need-me]
     #:title (wkt @titlet{Abstracting Abstract Machines})
     (define intp @ct{Interpreter})
     (define absp (frame (inset @ct{Abstract interpreter} 20)
@@ -371,13 +350,18 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
     (cond [(= stage interpreter) arrows]
           [(<= why-abs-int stage examples) (pin-cousot arrows)]
           [(= stage unit-interpreter) arrows2]
-          [(= stage could-be-concrete)
-           (pin-arrow-line 15 arrows2 absp rc-find intp rc-find
-                           #:start-angle 0
-                           #:end-angle pi
-                           #:start-pull 0.5
-                           #:end-pull 0.75
-                           #:line-width 3)]))
+          [(>= stage could-be-concrete)
+           (cc-superimpose
+            (pin-arrow-line 15 arrows2 absp rc-find intp rc-find
+                            #:start-angle 0
+                            #:end-angle pi
+                            #:start-pull 0.5
+                            #:end-pull 0.75
+                            #:line-width 3)
+            (show (shadow-frame
+                   (hbl-append (colorize @ct{Con:} "firebrick")
+                               @ct{ loses important control structure}))
+                  (= stage you-need-me)))]))
 
   (define (what-is-aam)
     (define α 0.8)
@@ -386,6 +370,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
               (cc-superimpose (filled-rectangle SCREEN-WIDTH SCREEN-HEIGHT)
                                  (pin-over-center (scale (bitmap canyon-path) α) (* α 707) (* α 295)
                                                   (scale (bitmap grinder-path) 0.1)))))
+
   (define heap-slogan (with-size 60 @kt{Heap-allocate recursion}))
   (define/staged what-is-aam2 #:stages [what-does-it-do abs-step
                                         [slogan #:title heap-slogan]
@@ -542,6 +527,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
     (define cycol1 (cond [(= stage cycle) "red"]
                          [(= stage proper) call0]
                          [else "black"]))
+    (define call0-width (if (= stage proper) 5 3))
     (define propcol0 (if (= stage proper) call0 "black"))
     (define propcol1 (cond [(= stage proper) call1]
                            [(= stage cycle) "red"]
@@ -553,7 +539,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
                       #:start-angle (* 1/6 pi)
                       #:end-angle (* -1/3 pi)
                       #:start-pull 0.4 #:end-pull 0.8
-                      #:line-width 3 #:color propcol0))
+                      #:line-width call0-width #:color propcol0))
     (define call->ret
       (pin-arrow-line 15 read0->call
                       (find-tag codes 'f-call) cb-find
@@ -565,7 +551,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
     (define ret->read0
       (pin-arrow-line 15 call->ret (find-tag codes 'return) rc-find (find-tag codes 'read0) ct-find
                       #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
-                      #:line-width 3
+                      #:line-width call0-width
                       #:color cycol1))
     (define read1->call
       (pin-arrow-line 15 ret->read0
@@ -646,14 +632,16 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
           [(= stage second-call) ret->read1]))
 
   (define (cyclic base left right)
+    (define lr
+      (pin-arrow-line 15
+                      base
+                      left cb-find right cb-find
+                      #:start-angle (/ pi -2) #:start-pull .6
+                      #:end-angle (/ pi 2) #:end-pull .6
+                      #:line-width 3
+                      #:color "red"))
     (pin-arrow-line 15
-                    (pin-arrow-line 15
-                                    base
-                                    left cb-find right cb-find
-                                    #:start-angle (/ pi -2) #:start-pull .6
-                                    #:end-angle (/ pi 2) #:end-pull .6
-                                    #:line-width 3
-                                    #:color "red")
+                    lr
                     right ct-find left ct-find
                     #:start-angle (/ pi 2) #:start-pull .6
                     #:end-angle (/ pi -2) #:end-pull .6
@@ -665,18 +653,18 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
     (define h0 (ic "h"))
     (define h1 (ic "h'"))
     (define popup
-      (inset (hc-append h0 (ic "[〈c,") h1 (ic "〉 ↦ {cont}]")) 30))
+      (inset (hbl-append h0 (ic "[〈c,") h1 (ic "〉 ↦ {cont}]")) 30))
     (define popup* (if (>= stage circular)
                        (cyclic popup h0 h1)
                        popup))
     (vc-append 50
      (vl-append gap-size
-                (hc-append @ct{AAM told us } @ic{cons : X -> Addr -> List[X]})
+                (hbl-append @ct{AAM told us } @ic{cons : X -> Addr -> List[X]})
                 (show (hc-append @ct{Are } call-ctx0 @ct{ just fancy addresses?})
                       (>= stage just-addrs))
                 (show
                  (vl-append gap-size
-                            (hc-append @ct{States are } @ic{〈code heap stack〉} @ct{ and the stack is irrelevant})
+                            (hbl-append @ct{States are } @ic{〈code heap stack〉} @ct{ and the stack is irrelevant})
                             (hc-append call-ctx0 @ct{ is } @ic{〈code heap〉}))
                  (>= stage relevance)))
      (show popup* (>= stage structure))
@@ -684,17 +672,16 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
            (>= stage the-trick))))
 
   (define/staged non-blocking-example #:stages [recall show-code unfold problem stratify]
-    #:anim-at [unfold #:steps 10]
+    #:anim-at [unfold #:steps 5]
     (define h0 @ct{h})
     (define h1 @ct{h'})
-    (define store-pict0
-      (hc-append (ct "h[ka ↦ {(cons φ ") call-ctx0 (ct ")}]")))
-    (define store-pict1
-      (hc-append h0 (ct "[ka ↦ {(cons φ 〈c,") h1 (ct "〉)}]")))
+    (define stored1 (hbl-append (ct "〈c,") h1 (ct "〉")))
+    (define (store-pict p)
+      (hbl-append h0 (ct "[ka ↦ {(cons af ") p (ct ")}]")))
     (define (mk n)
       (cc-superimpose
        (why-not-picts #f #t #t
-                      (hc-append (code read-request) @ct{ uses non-blocking I/O}))
+                      (hbl-append (code read-request) @ct{ uses non-blocking I/O}))
        (show
         (vc-append
          (shadow-frame
@@ -704,8 +691,8 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
                             k)))))
          (show (shadow-frame
                 (if (>= stage problem)
-                    (cyclic store-pict1 h0 h1)
-                    (fade-pict n store-pict0 store-pict1)))
+                    (cyclic (store-pict stored1) h0 h1)
+                    (store-pict (fade-pict n call-ctx0 stored1))))
                (>= stage unfold)))
         (>= stage show-code))))
     (cond 
@@ -717,6 +704,25 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
        (show (rotate (shadow-frame @ct{Can we stratify like with Contexts?}) (/ pi 16))
              (= stage stratify)))]))
 
+  (define/staged no-stratification #:stages [say-we-do extra-env is-relevant why-relevant new-relevance what-χ χ-circ cant-do-it]
+    #:title (wkt @titlet{Of course not!})
+    (define ra (colorize @ic{a} "red"))
+    (define χ0 (ic "χ"))
+    (define χ1 (ic "χ'"))
+    (define circ (hbl-append χ0 (ic "(") ra (ic ")") @ct{ ∋ } (ic "〈h',") χ1 (ic "〉")))
+    (cc-superimpose
+     (vc-append 120
+      (vl-append gap-size
+                 (vc-append gap-size
+                            (hc-append (ic "〈code, heap, ") call-ctx0 (ic "〉") @ct{ where } (ic "heap(ka)") @ct{ ∋ } (ic "(comp 〈c,") ra (ic "〉)"))
+                            (show (hc-append (ic "χ(") ra (ic ")") @ct{ ∋ } (ic "h'")) (>= stage extra-env)))
+                 (show (hc-append @ct{Well, now } (ic "χ") @ct{ is relevant!}
+                                  (show (hc-append @ct{ Since } (ic "χ") @ct{ closes the heap}) (>= stage why-relevant)))
+                       (>= stage is-relevant))
+                 (show (hc-append call-ctx0 @ct{ ≡ } @ic{〈c', h', χ'〉}) (>= stage new-relevance)))
+      (show (if (>= stage χ-circ) (cyclic circ χ0 χ1) circ) (>= stage what-χ)))
+     (show (shadow-frame (hbl-append χ0 @ct{ and } @ic{heap} @ct{ are mutually recursive! Can't stratify!})) (>= stage cant-do-it))))
+
   (define shift-rule (with-size 40 @t{E[F[(shift k e)]] ↦ E[e{k := (λ (x) F[x])}]}))
 
   (define/staged intro-continuations #:stages [what-if good-friend]
@@ -727,7 +733,8 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
                                         @kt{?}))
                (show shift-rule (>= stage good-friend))))
 
-  (define/staged why-continuations #:stages [just-toy not-just-toy good-for used-by]
+  (define/staged why-continuations #:stages [just-toy not-just-toy good-for used-by
+                                                      hard-to-understand]
     #:title (wkt @titlet{Who cares about continuations?})
     #:anim-at [good-for #:steps 20 #:skip-first]
     (define-values (i0 i1 i2 i3 i4 i5)
@@ -751,23 +758,33 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
       (cc-superimpose (bitmap paddle-ball-path)
                       (show (bitmap forbidden16-path)
                             (= stage not-just-toy)))]
-     [(= stage good-for)
-      slider]
-     [(= stage used-by)
-      (pin-over
-       (pin-over
+     [(= stage good-for) slider]
+     [(>= stage used-by)
+      (define users
         (pin-over
          (pin-over
           (pin-over
-           (pin-over (slider 1) -220 -220 (bitmap (plt-logo)))
-           100 -20 (scale (bitmap swarm-path) 0.5))
-          -220 250 (scale (bitmap get-bonus-path) .6))
-         -50 400 (bitmap hekate-path))
-        300 300 (scale (bitmap typesafe-path) .3))
-       300 -200 (scale (bitmap akka-path) .1))]))
+           (pin-over
+            (pin-over
+             (pin-over (slider 1) -220 -220 (bitmap (plt-logo)))
+             100 -20 (scale (bitmap swarm-path) 0.5))
+            -220 250 (scale (bitmap get-bonus-path) .6))
+           -50 400 (bitmap hekate-path))
+          300 300 (scale (bitmap typesafe-path) .3))
+         300 -200 (scale (bitmap akka-path) .1)))
+      (define wadler
+        (panorama
+         (pin-balloon (wrap-balloon @ct{I don't understand!} 'sw -40 50)
+                      (frame (bitmap wadler-path))
+                       257 ;; wadler mouth x
+                       103 ;; wadler mouth y
+                       )))
+      (cc-superimpose
+       users
+       (show wadler (= stage hard-to-understand)))]))
 
-  (define/staged toy-continuation #:stages [toy shift-meaning
-                                            stack stack-fun stack-run
+  (define/staged toy-continuation #:stages [toy stack stack-fun stack-run
+                                            shift-meaning
                                             what-evaluated k-means subst-k beta result]
     #:title shift-rule
     (define shift-stack
@@ -806,7 +823,7 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
      300 -150 (show (pict-cond [(= stage stack) shift-stack]
                                [(= stage stack-fun) brack-k]
                                [(>= stage stack-run) pointed])
-                    (<= stack stage))))
+                    (>= stage stack))))
 
   (define/staged takeaway #:stages [delimit if-capture make-space-dag thank-you]
     #:title (wkt (with-size 60 @t{Takeaway}))
@@ -821,9 +838,8 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
         (vc-append (* 2 (current-gap-size))
          (vl-append
           (* 2 (current-gap-size))
-          @ct{Delimit computations by relevant stater}
-          (show @ct{Abstract captured “relevance” with an address}
-                (>= stage if-capture))
+          @ct{Delimit computations by relevant state}
+          (show @ct{Squash abstracted relevance objects} (>= stage if-capture))
           (show @ct{Break cycles in state space with addresses}
                 (>= stage make-space-dag)))
          (show (with-size 80 @thanks{Thank you}) (>= stage thank-you)))))
@@ -834,26 +850,25 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
   ;; TODO
   ;; We have a recipe for respecting the stack.
 
-  (define (run-talk [sections '(intro sounds why why-aam why-not the-one-idea toy non-blocking paper2 conclusion)]
+  (define (run-talk [sections '(intro motivation how-aam why-not the-one-idea
+                                      idea-and-conts non-blocking conclusion)]
                     #:main-font [main-font "LModern"])
     (parameterize ([current-main-font main-font])
       (define-syntax-rule (section name body ...) (when (memv 'name sections) body ...))
       (section intro
-               (title))
-      (section sounds
+               (title)
                (run-stages what-do-I-do))
-
-      (section why-aam
+      (section motivation
                (run-stages why-aam)
+               (run-stages why-continuations)
+               (slide (with-size 60 @ic{</motivation>})))
+
+      (section how-aam
                (slide (what-is-aam))
-               (run-stages what-is-aam2)
-               #|
-               AAM is this great way of easily (& correctly!) turning your language interpreter
-               into an abstract interpreter (and back again!)
-               |#
-               )
+               (run-stages what-is-aam2))
       (section why-not
                (run-stages why-not-aam))
+
       (section the-one-idea
                (slide (with-size 60 (vl-append @kt{Insight:}
                                                @kt{delimit computations &}
@@ -864,18 +879,26 @@ Tangled control flow graphs mean bad termination analysis (useful for inductive 
                (run-stages fix-aam)
                (run-stages fix-zoom))
 
-      (section why
+      (section idea-and-conts
                (run-stages intro-continuations)
-               (run-stages why-continuations))
-      (section toy
                (run-stages toy-continuation))
+
       (section non-blocking
                (run-stages non-blocking-example)
-               ;; Can't stratify: why? What do we do instead?
-               )
+               (run-stages no-stratification)
+               (slide
+                (with-size 60 @kt{Squash it})
+                'next
+                (hbl-append @ct{Instead of } @ic{χ ⊔ [a ↦ 〈h',χ'〉]})
+                'next
+                (hbl-append @ct{we do } @ic{χ ⊔ χ' ⊔ [a ↦ {h'}]})
+                'next
+                @ct{⟦〈c',a〉⟧ = {cont ∈ Contexts(〈c',h',χ'〉) : h' ∈ χ(a), χ' ⊑ χ}}))
+      ;; TODO: revisit example with this solution
+
 
       (section conclusion
-               ;; TODO: Why doesn't this print money? (future work)
+               ;; TODO?: Why doesn't this print money? (future work)
                (run-stages takeaway)))))
 
 (module+ main
