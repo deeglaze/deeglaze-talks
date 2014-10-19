@@ -44,8 +44,10 @@ Talk outline:
 + We can't make a big split like with Xi, since chi is still relevant!
 + Well, throw chi back in. [example***] Cyclic! Crap!
 + Solution: squash chis together and have one parent chi.
-- Example works now
-- What can't we do, and what do we want to do?
++ Example works now
++ What can't we do, and what do we want to do?
+  * Can't do modular semantics yet (what if a shifted continuation is a black hole?)
+  * 
 + Takeaway
 
 |#
@@ -122,6 +124,7 @@ Talk outline:
 (define-runtime-path cousot-path "cousot.png")
 (define-runtime-path canyon-path "grand-canyon.jpg")
 (define-runtime-path wadler-path "wadler.jpg")
+(define-runtime-path black-hole-path "supermassive-black-hole.jpg")
 
 (define-runtime-path forbidden8-path "forbidden8.png")
 (define-runtime-path forbidden16-path "forbidden16.png")
@@ -580,7 +583,7 @@ Talk outline:
   (define/staged fix-aam
     #:stages [revisit first-call second-call]
     (define codes (why-not-picts (and (> stage revisit) (sub1 stage)) #t #t #f))
-    (define ctx (ic "Context = ["))
+    (define ctx (ic "Contexts = ["))
     (define close (ic "]"))
     (define call-map0 (hc-append call-ctx0 (ic " ↦ {") (colorize (ic "cont") call0) (ic "}")))
     (define call-map1  (hc-append call-ctx1 (ic " ↦ {") (colorize (ic "cont") call1) (ic "}")))
@@ -677,24 +680,16 @@ Talk outline:
     (define h1 @ct{h'})
     (define stored1 (hbl-append (ct "〈c,") h1 (ct "〉")))
     (define (store-pict p)
-      (hbl-append h0 (ct "[ka ↦ {(cons af ") p (ct ")}]")))
+      (hbl-append h0 (ct "[ka ↦ {(comp ") p (ct ")}]")))
+      
     (define (mk n)
-      (cc-superimpose
-       (why-not-picts #f #t #t
-                      (hbl-append (code read-request) @ct{ uses non-blocking I/O}))
-       (show
-        (vc-append
-         (shadow-frame
-          (code (define (read-request f)
-                  (shift k (evloop-until-evt
-                            (read-request-evt f)
-                            k)))))
-         (show (shadow-frame
-                (if (>= stage problem)
-                    (cyclic (store-pict stored1) h0 h1)
-                    (store-pict (fade-pict n call-ctx0 stored1))))
-               (>= stage unfold)))
-        (>= stage show-code))))
+      (nbe (>= stage show-code)
+           (show (shadow-frame
+                  (if (>= stage problem)
+                      (cyclic (store-pict stored1) h0 h1)
+                      (store-pict (fade-pict n call-ctx0 stored1))))
+                 (>= stage unfold))
+           (hbl-append (code read-request) @ct{ uses non-blocking I/O})))
     (cond 
      [(< stage unfold) (mk 0)]
      [(= stage unfold) mk]
@@ -703,6 +698,70 @@ Talk outline:
        (mk 1)
        (show (rotate (shadow-frame @ct{Can we stratify like with Contexts?}) (/ pi 16))
              (= stage stratify)))]))
+
+  (define (nbe show-code? top bot)
+    (define req-def
+      (code (define #,(tag-pict (code (read-request f)) 'req-head)
+              #,(tag-pict (code (shift k (evloop-until-evt
+                                          (read-request-evt f)
+                                          k)))
+                          'body))))
+    (cc-superimpose
+     (why-not-picts #f #t #t bot)
+     (show (vc-append (shadow-frame req-def)
+                      top)
+           show-code?)))
+  
+  (define/staged non-blocking-solution #:stages [first run0 run1 different-addressing]
+    (define call0-left (arc 20 20 (* 1/2 pi) (* 3/2 pi) #t #:color call0))
+    (define call1-left (arc 20 20 (* 1/2 pi) (* 3/2 pi) #t #:color call1))
+
+    (define call0-h (arc 20 20 (* 1/2 pi) 0 #f #:color call0))
+    (define call1-h (arc 20 20 (* 1/2 pi) 0 #f #:color call1))
+    (define call0-χ (arc 20 20 0 (* 3/2 pi) #f #:color call0))
+    (define call1-χ (arc 20 20 0 (* 3/2 pi) #f #:color call1))
+    (define ka0 (colorize-if (= stage different-addressing) (ct "ka") call0))
+    (define ka1 (colorize-if (= stage different-addressing) (ct "ka") call1))
+    (define a0 (colorize-if (= stage different-addressing) (ct "a") call0))
+    (define a1 (colorize-if (= stage different-addressing) (ct "a") call1))
+    (define base (nbe #t
+                      (shadow-frame
+                       (vl-append gap-size
+                                  (vl-append 
+                                   (hc-append (ct "h = [")
+                                              (if (>= stage run0)
+                                                  (hc-append ka0 (ct " ↦ {(comp 〈") call0-left (ct ",") a0 (ct "〉)")
+                                                             (if (= stage run1)
+                                                                 (hc-append (ct ", (comp 〈") call1-left (ct ",") a1 (ct "〉)"))
+                                                                 (blank 0))
+                                                             (ct "}")
+                                                             (if (= stage different-addressing)
+                                                                 (ct ",")
+                                                                 (blank 0)))
+                                                  (blank 0))
+                                              (if (< stage different-addressing) (ct "]") (blank 0)))
+                                   (show (hc-append (ghost (ct "h = ["))
+                                                  ka1 (ct " ↦ {(comp  〈") call1-left (ct ",") a1 (ct "〉)}]"))
+                                       (= stage different-addressing)))
+                                  (hc-append (ct "χ = ")
+                                             (if (>= stage run0) (hc-append call0-χ @ct{ ⊔ }) (blank 0))
+                                             (if (>= stage run1) (hc-append call1-χ @ct{ ⊔ }) (blank 0))
+                                             (cond
+                                              [(= stage first) (ct "[]")]
+                                              [(< stage different-addressing)
+                                               (hc-append
+                                                (ct "[a ↦ {")
+                                                (if (>= stage run0) call0-h (blank 0))
+                                                (if (>= stage run1) (hc-append (ct ", ") call1-h) (blank 0))
+                                                (ct "}]"))]
+                                              [else (hc-append (ct "[") a0 (ct " ↦ {") call0-h (ct "}] ⊔ [") a1 (ct " ↦ {") call1-h (ct "}]"))]))))
+                      (blank 0)))
+    (define with-ctxs
+      (pin-over-vcenter base (find-tag base 'req-head) rc-find
+                        (hc-append 5
+                                   (show call-ctx0 (>= stage run0))
+                                   (show call-ctx1 (>= stage run1)))))
+    with-ctxs)
 
   (define/staged no-stratification #:stages [say-we-do extra-env is-relevant why-relevant new-relevance what-χ χ-circ cant-do-it]
     #:title (wkt @titlet{Of course not!})
@@ -714,10 +773,10 @@ Talk outline:
      (vc-append 120
       (vl-append gap-size
                  (vc-append gap-size
-                            (hc-append (ic "〈code, heap, ") call-ctx0 (ic "〉") @ct{ where } (ic "heap(ka)") @ct{ ∋ } (ic "(comp 〈c,") ra (ic "〉)"))
-                            (show (hc-append (ic "χ(") ra (ic ")") @ct{ ∋ } (ic "h'")) (>= stage extra-env)))
-                 (show (hc-append @ct{Well, now } (ic "χ") @ct{ is relevant!}
-                                  (show (hc-append @ct{ Since } (ic "χ") @ct{ closes the heap}) (>= stage why-relevant)))
+                            (hbl-append (ic "〈(shift k e), heap, ") call-ctx0 (ic "〉") @ct{ produces } (ic "heap(ka)") @ct{ ∋ } (ic "(comp 〈c,") ra (ic "〉)"))
+                            (show (hbl-append (ic "χ(") ra (ic ")") @ct{ ∋ } (ic "h'")) (>= stage extra-env)))
+                 (show (hbl-append @ct{Well, now } (ic "χ") @ct{ is relevant!}
+                                  (show (hbl-append @ct{ Since } (ic "χ") @ct{ closes the heap}) (>= stage why-relevant)))
                        (>= stage is-relevant))
                  (show (hc-append call-ctx0 @ct{ ≡ } @ic{〈c', h', χ'〉}) (>= stage new-relevance)))
       (show (if (>= stage χ-circ) (cyclic circ χ0 χ1) circ) (>= stage what-χ)))
@@ -727,7 +786,7 @@ Talk outline:
 
   (define/staged intro-continuations #:stages [what-if good-friend]
     (vc-append gap-size
-               (with-size 60 (hc-append gap-size
+               (with-size 60 (hbl-append gap-size
                                         @kt{What if “the stack” isn't a}
                                         @kit{stack}
                                         @kt{?}))
@@ -825,6 +884,16 @@ Talk outline:
                                [(>= stage stack-run) pointed])
                     (>= stage stack))))
 
+  (define/staged future #:stages [grinder want-scale black-hole relevance possible-solution]
+    #:title (wkt @titlet{Where do we stand?})
+    (vl-append gap-size
+               (hc-append (scale (bitmap grinder-path) 0.4) @ct{ abstract languages and respect control})
+               (show @ct{Want shift/reset in modular semantics} (>= stage want-scale))
+               (show (hc-append (blank 300 1) (ct "(what if (comp ") call-ctx0 (ct ") is ") (scale (bitmap black-hole-path) 0.5) (ct ")") ) (>= stage black-hole))
+               (show
+                (hc-append (ct "Not all the heap is relevant ") (show (ct "[Stefan Staiger-Stӧhr diss]") (>= stage possible-solution)))
+                (>= stage relevance))))
+
   (define/staged takeaway #:stages [delimit if-capture make-space-dag thank-you]
     #:title (wkt (with-size 60 @t{Takeaway}))
     #:layout 'top
@@ -893,12 +962,12 @@ Talk outline:
                 'next
                 (hbl-append @ct{we do } @ic{χ ⊔ χ' ⊔ [a ↦ {h'}]})
                 'next
-                @ct{⟦〈c',a〉⟧ = {cont ∈ Contexts(〈c',h',χ'〉) : h' ∈ χ(a), χ' ⊑ χ}}))
-      ;; TODO: revisit example with this solution
+                @ct{⟦〈c',a〉⟧ = {cont ∈ Contexts(〈c',h',χ'〉) : h' ∈ χ(a), χ' ⊑ χ}})
 
+               (run-stages non-blocking-solution))
 
       (section conclusion
-               ;; TODO?: Why doesn't this print money? (future work)
+               (run-stages future)
                (run-stages takeaway)))))
 
 (module+ main
@@ -909,4 +978,4 @@ Talk outline:
 
 (module+ test
   (require (submod ".." slide-deck))
-  (void (run-talk '(non-blocking))))
+  (void (run-talk '(conclusion))))
