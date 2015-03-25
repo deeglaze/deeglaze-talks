@@ -169,7 +169,7 @@ If you want the giant hack, well, read on.
          racket-poppler
          (submod proposal/presentation pict-utils)
          (except-in (submod dls2014/talkb slide-deck) title)
-         (only-in icfp2013-talk/icfp2013 fanout-pict lazy-pict speedup-pict)
+         (only-in icfp2013-talk/icfp2013 fanout-pict lazy-pict speedup-pict aam-pict)
          "wtable.rkt"
          (rename-in
           (only-in (submod icfp2013-talk/icfp2013 slide-deck)
@@ -179,8 +179,7 @@ If you want the giant hack, well, read on.
                    what-is-CESK)
           [intro aam-intro]))
 (latex-path "/usr/bin/pdflatex")
-(latex-debug? #t)
-(set-page-numbers-visible! #t)
+
 
 (define SCREEN-WIDTH 1024)
 (define SCREEN-HEIGHT 768)
@@ -264,10 +263,18 @@ If you want the giant hack, well, read on.
                       (make-list (max 0 (- n (string-length str))) mono-space)
                       (list (s->pict str))) ))
 
+(define (trbox #:color color #:text text #:show [show? #t] pict)
+  (rt-superimpose
+   (cc-superimpose
+    (show (colorize (filled-rectangle (pict-width pict) (pict-height pict)) color)
+          show?)
+    pict)
+   (show text show?)))
+
 (module+ slide-deck
   (provide introduction abstract-interpreters wonderful terrible
            thesis-slide talk-outline
-           semantics omega step-omega big-states finitize finite-structure when-lookup yada
+           semantics aam? omega step-omega big-states finitize finite-structure when-lookup yada
            stack-push relevance relevance-useful relevance-memoization
            lang-intro my-language oneness-intro oneness-problem oneness-solution)
   (define/staged introduction #:stages [make write DT popular weird foreward inscrutable]
@@ -632,6 +639,12 @@ If you want the giant hack, well, read on.
          (- (pict-width built) (pict-width redex-pict) 19)
          (- (pict-height built) (pict-height redex-pict) 20)
          (show redex-pict (>= stage abstract-machines)))])))
+
+  (define/staged aam? #:stages [what paper]
+    (cc-superimpose
+     (with-size 60 (vc-append gap-size @iic{Abstract}
+                              @ic{abstract machines?}))
+     (show (shadow-frame (force aam-pict)) (= stage paper))))
 
   (define/staged omega #:stages [lets alsoUU as-beta forever initial]
     #:name 'eval-example
@@ -1079,9 +1092,7 @@ If you want the giant hack, well, read on.
 
   (define (semantics-to-aam)
     (run-stages semantics)
-    (slide #:name 'aam?
-           (with-size 60 (vc-append gap-size @iic{Abstract}
-                                    @ic{abstract machines?})))
+    (run-stages aam?)
     (run-stages (grinder #t) #:stage '(static big-semantics (output . 0)))
     (run-stages what-is-CESK))
 
@@ -1105,94 +1116,109 @@ If you want the giant hack, well, read on.
                         @kt{Generally, finitize structure.}
                         @kt{But, the stack is special.}))))
 
-  (define (small-pdcfa)
-    (slide
-     #:title (with-size 50 @kt{That's it.})
-     (pin-over-hcenter
-      (blank 0)
-      -80 -310
-      (hc-append
-       50
-       (scale
-        (code
-         (code:comment "all transparent")
-         (struct state (point σ κ))
-         (struct mt ())
-         (struct rt (ctx))
-         code:blank
-         (define F (mutable-set))
-         (define R (mutable-set))
-         (define Seen (mutable-set))
-         (define M (make-hash))
-         (define Ξ (make-hash))
-         code:blank
-         (define (add-state! s)
-           (unless (set-member? Seen s)
-             (set-add! F s)
-             (set-add! Seen s)))
-         code:blank
-         (define (add-reduction! s0 s1)
-           (set-add! R (cons s0 s1))
-           (add-state! s1))
-         code:blank
-         (define (analyze e)
-           (set-clear! F)
-           (set-clear! R)
-           (set-clear! Seen)
-           (hash-clear! M)
-           (hash-clear! Ξ)
-           (define ς₀
-             (state (cons e (hash))
-                    (hash) (mt)))
-           (set-add! F ς₀)
-           (do () ((set-empty? F))
-             (define ς (set-first F))
-             (set-remove! F ς)
-             (step ς))
-           '|the final system|
-           (list R M Ξ)))
-        0.4)
-       (scale
-        (code
-         (code:comment "continuation frames")
-         (struct ar (e ρ))
-         (struct fn (v))
-         code:blank
-         (code:comment "Syntax")
-         (struct ref (x))
-         (struct app (e0 e1))
-         (struct lam (x e))
-         code:blank
-         (code:comment "Semantics")
-         (define (step s)
-           (match s
-             [(state (cons (ref x) ρ) σ κ)
-              (for ([v (in-set (hash-ref σ (hash-ref ρ x)))])
-                (add-reduction! s (state v σ κ)))]
-             code:blank
-             [(state (cons (app e0 e1) ρ) σ κ)
-              (add-reduction! s (state (cons e0 ρ) σ (cons (ar e1 ρ) κ)))]
-             code:blank
-             [(state v σ (cons (ar e ρ) κ))
-              (add-reduction! s (state (cons e ρ) σ (cons (fn v) κ)))]
-             code:blank
-             [(state v σ (cons (fn (cons (lam x e) ρ)) κ))
-              (define a (alloc s))
-              (define ρ* (hash-set ρ x a))
-              (define σ* (hash-add σ a v))
-              (define ctx (list e ρ* σ*))
-              (hash-add! Ξ ctx κ)
-              (match (hash-ref M ctx #f)
-                [#f (add-reduction! s (state (cons e ρ*) σ* (rt ctx)))]
-                [results (for ([r (in-set results)])
-                           (match-define (cons v* σ**) r)
-                           (add-state! (state v* σ** κ)))])]
-             code:blank
-             [(state v σ (rt ctx))
-              (hash-add! M ctx (cons v σ))
-              (for ([κ (in-set (hash-ref Ξ ctx))])
-                (add-reduction! s (state v σ κ)))])))
-        0.4)))))
+  (define/staged small-pdcfa #:stages [entirety general specific]
+    (ct-superimpose
+     (show (with-size 50 @kt{That's it.}) (= stage entirety))
+     (cc-superimpose
+      (pin-over
+       (pin-over (blank SCREEN-WIDTH SCREEN-HEIGHT)
+                 280 -20
+                 (show (rt-superimpose
+                        (colorize (filled-rectangle (- SCREEN-WIDTH 300) SCREEN-HEIGHT)
+                                  '(210 210 210))
+                        (inset (colorize @kt{Language specific} "white") 10))
+                       (= stage specific)))
+       -20 -20
+       (show
+        (rt-superimpose
+         (colorize (filled-rectangle 300 SCREEN-HEIGHT) '(160 160 160))
+         (inset (colorize @kt{General} "white") 10))
+        (>= stage general)))
+      (pin-over-hcenter
+       (blank 0)
+       -80 -310
+       (hc-append
+        50
+        (scale
+         (code
+          (code:comment "all transparent")
+          (struct state (point σ κ))
+          (struct mt ())
+          (struct rt (ctx))
+          code:blank
+          (define F (mutable-set))
+          (define R (mutable-set))
+          (define Seen (mutable-set))
+          (define M (make-hash))
+          (define Ξ (make-hash))
+          code:blank
+          (define (add-state! s)
+            (unless (set-member? Seen s)
+              (set-add! F s)
+              (set-add! Seen s)))
+          code:blank
+          (define (add-reduction! s0 s1)
+            (set-add! R (cons s0 s1))
+            (add-state! s1))
+          code:blank
+          (define (analyze e)
+            (set-clear! F)
+            (set-clear! R)
+            (set-clear! Seen)
+            (hash-clear! M)
+            (hash-clear! Ξ)
+            (define ς₀
+              (state (cons e (hash))
+                     (hash) (mt)))
+            (set-add! F ς₀)
+            (do () ((set-empty? F))
+              (define ς (set-first F))
+              (set-remove! F ς)
+              (step ς))
+            '|the final system|
+            (list R M Ξ)))
+         0.4)
+        (scale
+         (code
+          (code:comment "continuation frames")
+          (struct ar (e ρ))
+          (struct fn (v))
+          code:blank
+          (code:comment "Syntax")
+          (struct ref (x))
+          (struct app (e0 e1))
+          (struct lam (x e))
+          code:blank
+          (code:comment "Semantics")
+          (define (step s)
+            (match s
+              [(state (cons (ref x) ρ) σ κ)
+               (for ([v (in-set (hash-ref σ (hash-ref ρ x)))])
+                 (add-reduction! s (state v σ κ)))]
+              code:blank
+              [(state (cons (app e0 e1) ρ) σ κ)
+               (add-reduction! s (state (cons e0 ρ) σ (cons (ar e1 ρ) κ)))]
+              code:blank
+              [(state v σ (cons (ar e ρ) κ))
+               (add-reduction! s (state (cons e ρ) σ (cons (fn v) κ)))]
+              code:blank
+              [(state v σ (cons (fn (cons (lam x e) ρ)) κ))
+               (define a (alloc s))
+               (define ρ* (hash-set ρ x a))
+               (define σ* (hash-add σ a v))
+               (define ctx (list e ρ* σ*))
+               (hash-add! Ξ ctx κ)
+               (match (hash-ref M ctx #f)
+                 [#f (add-reduction! s (state (cons e ρ*) σ* (rt ctx)))]
+                 [results (for ([r (in-set results)])
+                            (match-define (cons v* σ**) r)
+                            (add-state! (state v* σ** κ)))])]
+              code:blank
+              [(state v σ (rt ctx))
+               (hash-add! M ctx (cons v σ))
+               (for ([κ (in-set (hash-ref Ξ ctx))])
+                 (add-reduction! s (state v σ κ)))])))
+         0.4))))))
 
 (define (pushdown)
     (run-stages talk-outline #:stage 'pushdown)
@@ -1205,7 +1231,7 @@ If you want the giant hack, well, read on.
     (run-stages relevance)
     (run-stages relevance-useful)
     (run-stages relevance-memoization)
-    (small-pdcfa))
+    (run-stages small-pdcfa))
 
   (define (shifting-gears)
     (slide
@@ -1308,7 +1334,7 @@ If you want the giant hack, well, read on.
   (require (submod ".." slide-deck)
            (submod proposal/presentation slide-deck)
            (submod ".." sections))
-
+  (set-page-numbers-visible! #t)
   (intro-to-thesis)
   (run-stages talk-outline)
   (run-stages thesis-slide #:stage 'semantics)
@@ -1353,4 +1379,4 @@ If you want the giant hack, well, read on.
   (require (submod ".." slide-deck)
            (submod ".." sections))
 
-  (run-stages step-omega))
+  (run-stages small-pdcfa))
