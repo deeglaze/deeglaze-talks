@@ -114,6 +114,8 @@
 (define graph2-pict (delay (pdf-scale-or-bitmap graph2-path graph2-png 0.15)))
 (define comp-store-pict (delay (pdf-scale-or-bitmap comp-store-path comp-store-png 0.4642)))
 
+(provide fanout-pict lazy-pict speedup-pict)
+
 (define tyellow (make-object color% #xFF #xFF #x00 0.3))
 
 (module+ utils
@@ -317,8 +319,9 @@
 
   (define-syntax-rule (ctx body ...) (with-size 72 (parameterize ([use-color? #t]) body ...)))
   (define (CESK) (ctx (values @idtt{e} @idtt{ρ} @σtt{σ} @ctt{κ})))
-  (define/staged what-is-CESK #:stages [C E S K] #:anim-at [K #:steps 25 #:skip-first]
+  (define/staged what-is-CESK #:stages [C E S K]
     #:title "Start with CESK machine"
+    #:anim-at [K #:steps 25 #:skip-first]    
     (ctx
      (define-values (Cp Ep Sp Kp) (CESK))
      (define size 30)
@@ -368,8 +371,9 @@
         fader
         (fader 1)))
 
-  (define/staged talk-focus #:stages [anim dec fast focus #;goal #;revisit] #:anim-at [anim #:steps 60]
+  (define/staged talk-focus #:stages [anim dec fast focus #;goal #;revisit]
     #:title (with-size 50 @t{OAAM outline})
+    #:anim-at [anim #:steps 60]
     (define goal 4) ;; killed stage
     (define count (box 0))
     (define (numbers)
@@ -542,9 +546,15 @@
       (define eh (add1 (- y1 y0)))
       (pin-over p x0 y0 (show
                          (annulus ew eh 3 #:color "medium forest green" #:border-color "black") show?))))
-
-  (define/staged (aam->oaam deltas?) #:stages [graph slazy scomp sdelt hlazy hcomp hdelt]
-    #:title (show (with-size 42 @t{Finite reduction relation = graph}) (<= stage sdelt))
+  
+  (define frr (with-size 42 @t{Finite reduction relation = graph}))
+  (define/staged (aam->oaam deltas?) #:stages [[graph #:title frr]
+                                               [slazy #:title frr]
+                                               [scomp #:title frr]
+                                               [sdelt #:title frr]
+                                               [hlazy #:title (ghost frr)]
+                                               [hcomp #:title (ghost frr)]
+                                               [hdelt #:title (ghost frr)]]
     #:anim-at [sdelt #:skip-first]
     #:group intro (append (list graph slazy scomp) (if deltas? (list sdelt) '()))
     (define-values (lazy comp delt)
@@ -726,7 +736,6 @@
         (section outline
                 
                  (run-stages state-to-edge)
-                 (printf "WTF~%")
                  (run-stages (aam->oaam deltas?) #:group 'intro))
 
         (section lazy

@@ -42,12 +42,12 @@ Talk outline:
 + Example with continuations
 + What happens when capture relevance delimiters?
 + We can't make a big split like with Xi, since chi is still relevant!
-+ Well, throw chi back in. [example***] Cyclic! Crap!
++ Well, throw chi back in. Cyclic! Crap!
 + Solution: squash chis together and have one parent chi.
 + Example works now
 + What can't we do, and what do we want to do?
-  * Can't do modular semantics yet (what if a shifted continuation is a black hole?)
-  * 
+  * Can't do modular semantics for shift/reset yet, but we influenced symbolic evaluation work.
+  * Heaps can be big and irrelevant
 + Takeaway
 
 |#
@@ -72,7 +72,7 @@ Talk outline:
          scheme/runtime-path
          slideshow/balloon slideshow/face)
 ;; PARAMETERS
-(set-page-numbers-visible! #t)
+(set-page-numbers-visible! #f)
 (define use-pdf? #f)
 (define-for-syntax racket-poppler? #t)
 
@@ -208,7 +208,7 @@ Talk outline:
 
 (module+ slide-deck
 
-  (provide title what-do-I-do
+  (provide title what-do-I-do why-not-aam fix-aam fix-zoom
            ;; main function
            run-talk
            )
@@ -862,6 +862,7 @@ Talk outline:
                        (pin-over brack-k 30 runy run-point)
                        50 runy run)
                       run lc-find run-point rc-find))
+    (define cont (colorize-if (= stage subst-k) @ic{(λ (x) (+ 2 x))} "red"))
     (pin-over
      (vl-append gap-size
                 (blank 50)
@@ -876,7 +877,7 @@ Talk outline:
                       (>= stage shift-meaning))
                 (pict-cond
                  [(<= what-evaluated stage k-means) @ic{(+ 10 (+ 40 (k (k 3))))}]
-                 [(= stage subst-k) @ic{(+ 10 (+ 40 ((λ (x) (+ 2 x)) ((λ (x) (+ 2 x)) 3))))}]
+                 [(= stage subst-k) (hc-append (ic "(+ 10 (+ 40 (") cont (ic " (") cont (ic " 3)"))]
                  [(>= stage beta) @ic{(+ 10 (+ 40 (+ 2 (+ 2 3))))}])
                 (show @ic{57} (= stage result)))
      300 -150 (show (pict-cond [(= stage stack) shift-stack]

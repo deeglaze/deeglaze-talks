@@ -11,8 +11,8 @@
          racket/gui/base
          scheme/runtime-path
          "radar.rkt"
-         (only-in plot/utils polar->cartesian)
-         (only-in plot/private/common/draw pen-colors))
+         (only-in plot/utils polar->cartesian))
+
 
 (define logo-path (collection-file-path "prl-logo.png" "talk-utils"))
 (define-runtime-path oaam-path "oaam.pdf")
@@ -39,18 +39,29 @@
            pict]
         [else (bitmap png-path)]))
 
+(define-values (d-red d-gray d-blue d-dark-blue d-green d-yellow d-yellow-green d-dim-green d-bright-green)
+  (values "firebrick"
+          "gray"
+          "steel blue"
+          "dark slate blue"
+          "medium forest green"
+          "gold"
+          "olivedrab"
+          "limegreen"
+          "lime"))
 (define-values (a-red a-gray a-blue a-dark-blue a-green a-yellow a-yellow-green a-dim-green a-bright-green)
-  (values #f #f #f #f #f #f #f #f #f))
+  (values d-red d-gray d-blue d-dark-blue d-green d-yellow d-yellow-green d-dim-green d-bright-green))
+
 (define (default-colors!)
-  (set! a-red "firebrick")
-  (set! a-gray "gray")
-  (set! a-blue "steel blue")
-  (set! a-dark-blue "dark slate blue")
-  (set! a-green "medium forest green")
-  (set! a-yellow "gold")
-  (set! a-yellow-green "olivedrab")
-  (set! a-dim-green "limegreen")
-  (set! a-bright-green "lime"))
+  (set! a-red d-red)
+  (set! a-gray d-gray)
+  (set! a-blue d-blue)
+  (set! a-dark-blue d-dark-blue)
+  (set! a-green d-green)
+  (set! a-yellow d-yellow)
+  (set! a-yellow-green d-yellow-green)
+  (set! a-dim-green d-dim-green)
+  (set! a-bright-green d-bright-green))
 (define (darker-gray!)
   (default-colors!)
   (set! a-gray "dark gray"))
@@ -70,7 +81,9 @@
 (module+ pict-utils
   (provide kinda-big big really-big
            frame* arrows-back-and-forth tagged-shadow-frame hilight-tag
-           in-sawasdee citation)
+           in-sawasdee citation
+           default-colors! darker-gray! even-darker-gray! darker-gray-bright-green!)
+
   (define-syntax-rule (kinda-big e) (with-size 34 e))
   (define-syntax-rule (big e) (with-size 40 e))
   (define-syntax-rule (really-big e) (with-size 50 e))
@@ -130,7 +143,7 @@
            (only-in icfp2013-talk/pict-helpers
                     join-one braces nstruct production expr call tuple ntuple parens)
            (submod ".." pict-utils))
-  (provide run-talk)
+  (provide run-talk parting)
   (define (title)
     (parameterize ([current-slide-assembler bg-slide-assembler])
       (slide
@@ -146,13 +159,19 @@
          (blank-line)
          (t "Northeastern University")
          (blank-line)
-         (small (t "2013 November 18")))))))
+         (small (t "2013 November 20")))))))
 
   ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Why HOPA?
 
   (define (why-hopa)
-    (slide (big @t{Program analyses predict program behavior}))
+    (slide (big @t{Program analyses predict program behavior})
+           'next
+           (blank-line)
+           @t{Find bugs,}
+           @t{optimization opportunities,}
+           @t{verify bug-freedom}
+           )
     (slide (big @t{HOPA is a class of})
            @item{online,}
            @item{computable,}
@@ -241,12 +260,17 @@
     ;; AAAaaand thesis
     (run-stages thesis-slide))
 
-  (define/staged intrinsic/extrinsic #:stages [intrinsic extrinsic 0CFA HORS JPF AAM mine
+  (define t-int
+    (with-size 42 (hc-append (t "Intrinsically") (ghost (t " and Extrinsically")))))
+  (define t-ext
+    (with-size 42 (hc-append (t "Intrinsically") (t " and Extrinsically"))))
+
+  (define/staged intrinsic/extrinsic #:stages [[intrinsic #:title t-int]
+                                               extrinsic 0CFA HORS JPF AAM mine
                                                          zoom-extrinsic systematic
                                                          bad-aam]
+    #:title t-ext
     #:group intro (list intrinsic extrinsic 0CFA HORS JPF AAM mine zoom-extrinsic systematic)
-    #:title (with-size 42
-              (hc-append (t "Intrinsically") (show (t " and Extrinsically") (>= stage extrinsic))))
     ;; Quality / 0CFA / HORS / JPF / AAM / Me
     (define goodness `#(,a-red ,a-yellow ,a-yellow-green ,a-dim-green ,a-bright-green))
     (define precise-pointer (blank))
@@ -663,9 +687,9 @@
   (define/staged TC-negation #:stages [problematic good monitor-strategy prefixes
                                        problem post-problem derivative correctness solution hilight-denotation
                                        characterizing interesting]
+    #:title (big @t{Negation is problematic})
     #:group less-theory (list problematic good monitor-strategy prefixes
                               problem post-problem derivative correctness solution hilight-denotation)
-    #:title (big @t{Negation is problematic})
     (big
      (let ()
       (define e-meaning
@@ -948,4 +972,4 @@
 (module+ main
   (require (submod ".." slide-deck))
   (even-darker-gray!)
-  (void (run-talk '(done))))
+  (void (run-talk)))
