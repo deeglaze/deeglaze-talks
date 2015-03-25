@@ -70,6 +70,10 @@
 ;; Number transitions = 1 + ((rows - threshold) / (threshold - keep))
 ;; Number stages = rows + transitions
 (define (wtable ncols picts col-aligns row-aligns col-seps row-seps
+                ;; Since we have to build a whole slide, allow
+                ;; the user to do post-processing on the picts we create.
+                #:post [post (λ (stage->pict/proc stage->anim? stages)
+                                stage->pict/proc)]
                 #:title [title #f]
                 #:num-keep [keep 1] ;; how many rows do we keep after hitting the threshold?
                 #:threshold [threshold 2]
@@ -144,13 +148,14 @@
     (apply vl-append 0
            (build-list num (λ (i) ((if (>= i gn) ghost values) (vector-ref vrows (+ i start)))))))
 
+  (define (anim? stage) (animation-stage? keep threshold stage))
   (define (stage->pict stage)
     ;; We render up to threshold-many rows.
     ;; We start at ?? and end at ??
     ;; On stage ??, we animate the previous stage's rows to slide upward to keep
     ;; the last `keep` rows, applying `dilate` to the translation logic.
     ;; The last stage's rows form the absolute bounding box in which to clip the animation.
-    (if (animation-stage? keep threshold stage)
+    (if (anim? stage)
         (let*-values
             ([(start num-rows)
               (stage->row-start/num-integrate keep threshold (sub1 stage))]
@@ -170,8 +175,9 @@
                            (values num-rows num-rows))])
           (render-rows start num ghostn))))
 
-  (staged-slide stage->pict
-                (+ nrows ntransitions)
+  (define stages (+ nrows ntransitions))
+  (staged-slide (post stage->pict anim? stages)
+                stages
                 ;; no title or name
                 (for/hash ([n ntransitions])
                   (define which
@@ -180,7 +186,7 @@
                         (+ threshold (* n (add1 (- threshold keep))))))
                   ;; which stage is the animation for transition?
                   (values which
-                          (anim-info #t #f steps delay #f 'auto #f)))
+                          (anim-info #t #t steps delay #f 'auto #f)))
                 (hash) ;; no options
                 (slide-options title
                                #f

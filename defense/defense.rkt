@@ -1225,7 +1225,7 @@ If you want the giant hack, well, read on.
     (run-stages why-not-aam)
     (slide (with-size 60 (vl-append @kt{Insight:}
                                     @kt{delimit computations &}
-                                    @kt{catalog contexts by revelant state})))
+                                    @kt{catalog contexts by relevant state})))
     (run-stages fix-aam)
     (run-stages fix-zoom)
     (run-stages relevance)
@@ -1253,8 +1253,10 @@ If you want the giant hack, well, read on.
       (run-stages yada))
 
     (define (AAML)
-;      (run-stages lang-intro)
-;      (run-stages my-language)
+      (start-at-recent-slide)
+      (run-stages lang-intro)
+      (run-stages my-language)
+      (run-stages oneness-intro)
       (run-stages oneness-problem)
       (run-stages oneness-solution)
       (slide (pin-over (blank SCREEN-WIDTH SCREEN-HEIGHT)
@@ -1379,4 +1381,5 @@ If you want the giant hack, well, read on.
   (require (submod ".." slide-deck)
            (submod ".." sections))
 
-  (run-stages small-pdcfa))
+  (run-stages why-not-aam)
+  (run-stages fix-aam))
