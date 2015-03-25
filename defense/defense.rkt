@@ -258,6 +258,12 @@ If you want the giant hack, well, read on.
       (with-size 22 (colorize @ic{2015, March 30} c-neu))
       (blank-line))))))
 
+(define (pad-string n str s->pict)
+  (define mono-space (ghost (s->pict "0")))
+  (apply hc-append 0 (append
+                      (make-list (max 0 (- n (string-length str))) mono-space)
+                      (list (s->pict str))) ))
+
 (module+ slide-deck
   (provide introduction abstract-interpreters wonderful terrible
            thesis-slide talk-outline
@@ -673,9 +679,42 @@ If you want the giant hack, well, read on.
            (list
             (vl-append gap-size (ct "↦ ev〈(cons k (R k)) ρ₀[k ↦ a₂] σ₁[a₂ ↦ 0]")
                        (ct "         [(consR 0)]〉"))))))
+
+      (define frame-w 800)
+      (define frame-h 22)
+
       (wtable 1 picts lc-superimpose lc-superimpose 5 5
-              #:title (with-size 50 (hc-append (kt "B") (ct " = (λ (k) (cons k (R k)))")))
-              #:dilate fast-start)))
+               #:title (with-size 50 (hc-append (kt "B") (ct " = (λ (k) (cons k (R k)))")))
+               #:dilate fast-start
+               #:post
+               (λ (stage->pict/proc stage->anim? stages)
+                  (λ (stage)
+                     (define out (stage->pict/proc stage))
+                     (define anim? (stage->anim? stage))
+                     (define out-proc (if anim? out (λ (n) out)))
+                     (define (create n)
+                       (define start (/ (+ 1 stage) stages))
+                       (define end (/ (+ 2 stage) stages))
+                       (define progress (+ (* n end) (* (- 1 n) start)))
+                       (vc-append
+                        (out-proc n)
+                        (blank 100)
+                        (pin-over
+                         (pin-over
+                          ;; frame for progress
+                          (colorize (rectangle frame-w frame-h) '(80 80 80))
+                          0 0
+                          (inset (colorize (filled-rectangle (* progress (- frame-w 2))
+                                                             (- frame-h 2))
+                                     '(180 180 180))
+                                 1))
+                         (- frame-w 80) (+ frame-h 10)
+                         (hc-append (pad-string 3 (number->string 
+                                                          (inexact->exact
+                                                           (ceiling (* progress 100.))))
+                                                ct)
+                                    (ct "%")))))
+                     (if anim? create (create 0)))))))
 
   (define/staged big-states #:stages [big prob1 prob2 prob3 solution expl1 expl2]
     #:name 'big-states
@@ -1314,4 +1353,4 @@ If you want the giant hack, well, read on.
   (require (submod ".." slide-deck)
            (submod ".." sections))
 
-  (small-pdcfa))
+  (run-stages step-omega))
