@@ -19,15 +19,15 @@ Notes for revisions:
 *  - focus on allocation, non-determinism, and ↦ leading to a finite graph
 * Lead out from AAM is too abrupt - need to show what it accomplished before we can say what it didn't accomplish.
 
-The discussion of relevance needs more pictures to show encapsulated state and to nail home substitutivity.
+* The discussion of relevance needs more pictures to show encapsulated state and to nail home substitutivity.
 
-Need to add evaluation of the pushdown stuff - refer to Dimitrios' work since it's the same thing before stack inspection.
-  With GC, point to JFP numbers.
+* Need to add evaluation of the pushdown stuff - refer to Dimitrios' work since it's the same thing before stack inspection.
+*  With GC, point to JFP numbers.
 
-When showing the code, emphasize that it's elegant but SLOW. The transition needs just a little more 
+* When showing the code, emphasize that it's elegant but SLOW. The transition needs just a little more 
 work.
 
-OAAM part needs an overview of the techniques I used, and why I'm presenting just lazy non-determinism.
+* OAAM part needs an overview of the techniques I used, and why I'm presenting just lazy non-determinism.
 
 The OAAM evaluation should use the ICFP "ballpark" framing, discuss informal comparison to other Scheme analysis. No "yada".
 
@@ -89,7 +89,8 @@ If you want the giant hack, well, read on.
                    intro
                    grinder
                    grinder-grinder
-                   what-is-CESK)
+                   same-ballpark
+                   talk-focus)
           [intro aam-intro]))
 (latex-path "/usr/bin/pdflatex")
 
@@ -117,6 +118,7 @@ If you want the giant hack, well, read on.
 
 (define-syntax-rule (wit . forms) (parameterize ([current-main-font "Inconsolata"]) . forms))
 (define (ic s) (wit (t s)))
+(define (ibc s) (wit (bt s)))
 (define (iic s) (wit (it s)))
 
 (define-syntax-rule (wkt . forms) (parameterize ([current-main-font "Kaushan Script"]) . forms))
@@ -124,11 +126,10 @@ If you want the giant hack, well, read on.
 (define (kit s) (wkt (it s)))
 
 (define use-pdf? #t)
-(define-syntax-rule (error-bitmap e) (error 'todo "Render bitmap ~a" 'e))
+(define-syntax-rule (error-bitmap e) (error 'todov "Render bitmap ~a" 'e))
 (define-runtime-path neu-path "neu-logo-bg.png")
 (define-runtime-path one-ring-path "one-ring.png")
 (define-runtime-path redex-path "../icfp2013/plt-redex.jpeg")
-(define-runtime-path yada-path "yada.jpg")
 
 (define-runtime-path addresses-path "addresses.pdf")
 (define-runtime-path gamma-path "gamma.pdf")
@@ -197,9 +198,11 @@ If you want the giant hack, well, read on.
            pd-diagram fib-analogy fib-insights memo-machine substitutional-relevance 
            pd-results
            wins-of-aam aam-drawbacks
-           finite-structure when-lookup yada
-           stack-push relevance relevance-useful relevance-memoization
-           lang-intro my-language oneness-intro oneness-problem oneness-solution)
+           finite-structure when-lookup
+           stack-push relevance relevance-useful
+           aaml-motivation thocon-problem thocon-example
+           lang-intro example-rule
+           my-language oneness-intro oneness-problem oneness-solution)
 
   (define/staged wonderful #:stages [understand flow
                                      harden security
@@ -266,7 +269,7 @@ If you want the giant hack, well, read on.
                                             crit-fast
                                             crit-precise
                                             crit-understand
-                                            crit-easy language]
+                                            crit-easy]
     #:name 'terrible
     #:title
     (if conclusion?
@@ -341,10 +344,10 @@ If you want the giant hack, well, read on.
                    (if (< stage move-criteria)
                        (pin-over
                         middle-right
-                        (lerp ls-x n1
-                              (- (- (pict-width ls))
+                        (lerp ls-x (- (- (pict-width ls))
                                  ;; magic number to make it go offscreen
-                                 80))
+                                 80)
+                              n1)
                         ls-y
                         (show ls (>= stage st)))
                        middle-right))))
@@ -356,15 +359,7 @@ If you want the giant hack, well, read on.
               (= stage move-criteria)
               (= stage fade-criteria))
           place
-          (let* ([p0 (place 0)]
-                 [frm
-                  (cond
-                   [(= stage language)
-                    (shadow-frame
-                     (colorize @ic{I made a language} c-neu))]
-                   [else (blank)])]
-                 [res (cc-superimpose p0 frm)])
-            res))))
+          (place 0))))
 
   (define thesis-pict
     (parameterize ([current-font-size 30])
@@ -430,7 +425,7 @@ If you want the giant hack, well, read on.
                  (F (kt "Automatic:") language)
                  (F (hc-append (blank 50) (ic "Language for AAM")) language))
                 (F (ic "Related work") related)
-                (F (ic "Conclusion/future work") related))))
+                (F (ic "Conclusion") related))))
 
   (define/staged semantics #:stages [what-is def intensional abstract-machines
                                              efficient high-level abstracted]
@@ -530,6 +525,9 @@ If you want the giant hack, well, read on.
   (define (angle->find-in θ) (angle->finder (+ θ (/ pi 2))))
 
   (define states-to-step 10)
+  (define tneg-col "cadetblue")
+  (define tpos-col "tomato")
+  (define fpos-col "olive")
   (define/staged concrete->abstract #:stages [reduction infinite crush
                                                         true-positive
                                                         false-positive
@@ -552,7 +550,7 @@ If you want the giant hack, well, read on.
        (* (- state-radius 30) (cos (/ pi 4)))
        (* (- state-radius 30) (sin (/ pi 4)))
        (show
-        (colorize (filled-ellipse 25 25) "tomato")
+        (colorize (filled-ellipse 25 25) tpos-col)
         (>= stage true-positive))))
     (define-values (cx cy)
       (values (/ (pict-width conc-space) 2)
@@ -600,12 +598,12 @@ If you want the giant hack, well, read on.
                                           abs-end-color))
          (+ (/ asw 2) (* (- (/ asw 2) 70) (cos 0)))
          (+ (/ ash 2) (* (- (/ asw 2) 70) (- (sin 0))))
-         (show (cc-superimpose (colorize (filled-ellipse 25 25) "olive")
+         (show (cc-superimpose (colorize (filled-ellipse 25 25) fpos-col)
                                (colorize (with-size 20 (ct "!")) "white"))
                (>= stage false-positive)))
         (+ (/ asw 2) (* (+ (/ asw 2) 70) (cos (/ pi -4))))
         (+ (/ ash 2) (* (+ (/ asw 2) 70) (- (sin (/ pi -4)))))
-        (show (colorize (filled-ellipse 25 25) "cadetblue") (>= stage true-negative)))
+        (show (colorize (filled-ellipse 25 25) tneg-col) (>= stage true-negative)))
        ;; concrete space becomes unfocused
        (fade-pict nc conc-space conc-space-unfocused)
        ;; abstract relation shrinks
@@ -618,10 +616,30 @@ If you want the giant hack, well, read on.
        (fade-out nc (steps (clamp-apply stage infinite values n*)))
        ;; relation gets a hat
        (conc nc)))
+    (define dark (make-object color% 180 180 180))
+    (define light (make-object color% 210 210 210))
     (if (or (= stage crush)
             (= stage infinite))
         build
-        (build 0))
+        (pin-over
+         (pin-over
+          (pin-over
+           (build 0)
+           60 100
+           (show (inset (shadow @ct{True positive} 5 5
+                                #:color tpos-col
+                                #:shadow-color dark)
+                        5)
+                 (>= stage true-positive)))
+          330 100
+          (show (inset (shadow @ct{False positive} 5 5
+                               #:color fpos-col
+                               #:shadow-color dark)
+                       5) (>= stage false-positive)))
+         550 450
+         (show (shadow @ct{True negative} 5 5
+                       #:color tneg-col
+                       #:shadow-color light) (>= stage true-negative))))
     )
 
   (define/staged big-states #:stages [big prob1 prob2 prob3 solution expl1 expl2]
@@ -651,7 +669,7 @@ If you want the giant hack, well, read on.
         (show @ct{[â₁ ↦ {v₁, v₂}]} (>= stage both))
         (show (hc-append gap-size @ic{Lookup} @ct{â₁} @ic{means} @iic{either} @ct{v₁} @iic{or} @ct{v₂})
               (>= stage either))
-        (show (hc-append gap-size @ct{〈a σ κ〉 ↦ 〈v σ κ〉} @ic{where} @ct{v ∈ σ(a)})
+        (show (hc-append gap-size @ct{〈â σ κ〉 ↦ 〈v σ κ〉} @ic{where} @ct{v ∈ σ(â)})
               (>= stage nondet)))
        550 125
        (show (pdf->pict addresses-path 0.7)
@@ -852,23 +870,27 @@ If you want the giant hack, well, read on.
        #:line-width 8 #:style call-style))
     (define out
       (panorama
-       (pin-arrow-line
-        15
-        (pin-arrow-line
-         15
-         (hc-append
-          (pin-under-center outer-call
-                            (/ (pict-width outer-call) 2)
-                            (/ (pict-height outer-call) 2)
-                            (show (ellipse (* 1.6 (pict-width outer-call))
-                                           (* 1.6 (pict-height outer-call)))
-                                  (= mode 2)))
-          (blank 100)
-          call-return)
-         call-site (if (>= mode 1) lc-find cc-find)
-         call-entry (if (>= mode 1) rc-find cb-find))
-        return-site rt-find
-        return-point lb-find)))
+       (pin-over
+        (pin-over
+         (pin-arrow-line
+          15
+          (pin-arrow-line
+           15
+           (hc-append
+            (pin-under-center outer-call
+                              (/ (pict-width outer-call) 2)
+                              (/ (pict-height outer-call) 2)
+                              (show (ellipse (* 1.6 (pict-width outer-call))
+                                             (* 1.6 (pict-height outer-call)))
+                                    (= mode 2)))
+            (blank 100)
+            call-return)
+           call-site (if (>= mode 1) lc-find cc-find)
+           call-entry (if (>= mode 1) rc-find cb-find))
+          return-site rt-find
+          return-point lb-find)
+         40 425 (ic "Call"))
+        30 80 (ic "Return"))))
     (define (polyfill base point-images)
       (define points
         (for/list ([img (in-list point-images)])
@@ -888,7 +910,7 @@ If you want the giant hack, well, read on.
   (define/staged pd-diagram #:stages [first-call package second-call short-circuit]
     (hc-append (call-diagram 'solid (min stage second-call))
                (blank 50)
-               (with-size 50 @ct{⇒})
+               (show (with-size 50 @ct{⇒}) (>= stage second-call))
                (blank 50)
                (show (call-diagram 'long-dash (if (= stage second-call)
                                                   1
@@ -927,7 +949,6 @@ If you want the giant hack, well, read on.
   (define (memo-machine)
     (define with (code (with-memoize n (fib n))))
     (slide #:title "Memo code ⇒ machine behavior"
-           'next
            fibm
            'next
            (pin-under with
@@ -944,7 +965,7 @@ If you want the giant hack, well, read on.
            (with-size 50 (hc-append @ic{Context } @ct{ctx} @ic{ extendable to a state}))
            @ct{∀ K. combine(〈ctx (memo ctx)〉, K) ↦* combine(〈v (memo ctx)〉, K)}
            'next
-           @ct{∀ E. E[e] ↦* E[v]}))
+           (with-size 50 @ct{∀ E. E[e] ↦* E[v]})))
 
   (define/staged pd-results #:stages [graphs numbers]
     (if (= stage graphs)
@@ -953,85 +974,163 @@ If you want the giant hack, well, read on.
                    (blank 50)
                    (bitmap pd-perf-path))))
   
-  (define/staged when-lookup #:stages [when? aam example-rule example-expr fanout me lazy]
-     (vc-append gap-size
-      @ic{Nondeterminism is too eager}
-      (show (hc-append gap-size @ic{AAM: look up when rule says.}) (>= stage aam))
-      (show (hc-append gap-size @ct{〈x ρ σ κ〉 ↦ 〈v ρ' σ κ〉} @ic{where} @ct{〈v,ρ'〉 ∈ σ(ρ(x))}) (>= stage example-rule))
+  (define/staged when-lookup #:stages [example-rule example-expr fanout me lazy]
+    #:title (with-size 50 @ic{Nondeterminism in AAM is too eager:})
+     (vc-append gap-size                
+                (hc-append gap-size @ct{〈x ρ σ κ〉 ↦ 〈v σ κ〉} @ic{where} @ct{v ∈ σ(ρ(x))})
       (show (code (f x y)) (>= stage example-expr))
       (show (force fanout-pict) (>= stage fanout))
-      (show (hc-append gap-size @ic{Me: whenever a looked up value is} @iic{inspected.}) (>= stage me))
+      (show (hc-append gap-size @ic{Look up} @iic{by need:}) (>= stage me))
+      (show (hc-append gap-size @ct{〈x ρ σ κ〉 ↦ 〈(Delay ρ(x)) σ κ〉})
+            (>= stage me))
       (show (vc-append (arrow 20 (/ pi -2))
                        (force lazy-pict))
             (>= stage lazy))))
 
-   (define/staged yada #:stages [elaine graph clear abscomp compiled timestamp replay
-                                 simple1 simple2 simple3 ugly compiler]
-     #:name 'yada
-     (cc-superimpose
-      (pin-over
-       (pin-over
-        (cc-superimpose
-         (pin-over
-          (pin-over
-           (pin-over
-            (pin-over
-             (pin-over
-              (show (force speedup-pict) (>= stage graph))
-              -100 -10
-              (show (scale (bitmap iswim-path) 0.7) (>= stage clear)))
-             350 0
-             (show (scale (bitmap abscomp-path) 0.85) (>= stage abscomp)))
-            350 400
-            (show (scale (bitmap compiled-path) 0.85) (>= stage compiled)))
-           500 0
-           (show (bitmap timestamp-path) (>= stage timestamp)))
-          500 300
-          (show (bitmap replay-path) (>= stage replay)))
-         (show (with-size 60 (shadow-frame @ic{Simple transform})) (>= stage simple1)))
-        -50 0
-        (show (rotate (shadow-frame (with-size 40 @ic{Simple transform})) (/ pi 16))
-              (>= stage simple2)))
-       550 20
-       (show (rotate (shadow-frame (with-size 30 @ic{Simple transform})) (/ pi -16))
-             (>= stage simple3)))
-      (vc-append
-       gap-size
-       (show (shadow-frame (with-size 100 (colorize @kt{Ugly mess} c-neu)))
-             (>= stage ugly))
-       (show (shadow-frame (with-size 100 (colorize @kt{Human compiler} c-neu)))
-             (>= stage compiler)))))
 
-   (define/staged lang-intro #:stages [general built-in functions allocation sound concrete]
+  (define/staged aaml-motivation #:stages [why problem]
+    #:title (with-size 50 @ic{A language to ease the pain})
+    (with-size 60
+     (vc-append gap-size
+                @kt{Not because I could.}
+                @kt{Because I needed to.}
+                (blank 50)
+                (show (with-size 50 @ic{Problem: temporal higher-order contracts})
+                      (= stage problem)))))
+
+  (define/staged thocon-problem #:stages [what temporal not-how identity]
+    #:title (with-size 50 @kt{What are they?})
+    (with-size 50
+      (vl-append gap-size
+                 (vl-append gap-size @ic{Higher-order contracts}
+                            (hc-append (blank 50) (ct "C ∈ Contract ::= C → C | flat(e)")))
+                 (show (hc-append gap-size @iic{Who} @ic{is called} @iic{when,}
+                                  @ic{with} @iic{whom?})
+                       (>= stage temporal))
+                 (show (hc-append gap-size @iic{How} @ic{is not the hard part.})
+                       (>= stage not-how))
+                 (show (hc-append gap-size @iic{Identity} @ic{is the hard part.})
+                       (>= stage identity)))))
+
+  (define/staged thocon-example #:stages [for-example identity implementation]
+    #:title (with-size 50 @kt{For example})
+    (with-size 50
+     (vl-append gap-size
+                @ic{No smuggling:}
+                (with-size 40 @ct{¬ (call(f,g) (¬ret(f,_))* ret(f,_) (¬call(g,_))* call(g,_))})
+                (show
+                 (hc-append gap-size @iic{The} @ct{g} @ic{passed to} @iic{the} @ct{f} 
+                            @ic{for} @iic{the} @ct{call})
+                 (>= stage identity))
+                (show (ht-append
+                       gap-size
+                       @ic{Implementation:}
+                       (vl-append gap-size 
+                                  @ic{pointer equality of}
+                                  (hc-append gap-size @ct{g} @ic{contract wrapper})))
+                      (>= stage implementation)))))
+
+   (define/staged lang-intro #:stages [built-in sound finite concrete functions]
      #:name 'lang-intro
-     #:title (with-size 50 @ic{I made a language})
+     #:title (with-size 50 @kt{Language features})
      (with-size 50
        (vl-append gap-size
-                  (blank 30)
-                  (show
-                   (hc-append gap-size
-                              @iic{Pattern}
-                              @ct{↦}
-                              @iic{Expression}
-                              @iic{[Side-conditions]})
-                   (>= stage general))
+                  (hc-append gap-size
+                             @iic{Pattern}
+                             @ct{↦}
+                             @iic{Expression}
+                             @iic{[Side-conditions]})
                   (blank 30)
                   (show @ic{Equality is built-in}
                         (>= stage built-in))
-                  (show @ic{First-order metafunctions} (>= stage functions))
-                  (show @ic{All allocation is mediated}
-                        (>= stage allocation))
                   (show @ic{Any allocation strategy is sound}
                         (>= stage sound))
-                  (show @ic{Fresh allocation ensures completeness}
-                        (>= stage concrete)))))
+                  (show @ic{Finite allocation ⇒ computable}
+                        (>= stage finite))
+                  (show @ic{Fresh allocation ⇒ complete}
+                        (>= stage concrete))
+                  (show @ic{First-order metafunctions} (>= stage functions)))))
 
    (define-syntax left-nest
      (syntax-rules ()
        [(_ fn base) base]
        [(_ fn base [args ...] rest ...)
         (left-nest fn (fn base args ...) rest ...)]))
+
+   (define/staged example-rule #:stages [rule pattern side-condition expr
+                                              built-in
+                                              metafunction]
+     #:title (λ (stage)
+                (with-size 50
+                 (cond
+                  [(= stage pattern) @kt{Pattern}]
+                  [(= stage side-condition) @kt{Side-condition}]
+                  [(= stage expr) @kt{Expression}]
+                  [(= stage built-in) @kt{Store built-in}]
+                  [(= stage metafunction) @kt{Metafunctions use ordered rules}]
+                  [else (ghost @kt{Pattern})])))
+     (define rule-pict
+       (with-size 40
+        (vc-append
+         (ht-append
+          gap-size
+          (tag-pict @ct{ev〈x ρ κ〉} 'pat1)
+          @ct{↦}
+          (vl-append
+           gap-size
+           (tag-pict @ct{co〈κ v〉} 'expr1)
+           (tag-pict
+            (hc-append
+             (ct "[where ")
+             (tag-pict (ct " v ") 'pat2) 
+             (tag-pict (hc-append (ct "(")
+                                  (tag-pict (ct "lookup ") 'lookup)
+                                  (tag-pict (ct "(elookup ρ x)") 'metafunction)
+                                  (ct ")")) 'expr2)
+             (ct "]"))
+            'sc))))))
+
+     (vc-append
+      (blank 60)
+      (hilight-tag
+       (hilight-tag
+        (hilight-tag
+         (hilight-tag
+          (hilight-tag
+           (hilight-tag
+            (hilight-tag rule-pict lt-find 'pat1 #:show (= stage pattern))
+            lt-find 'pat2 #:show (= stage pattern))
+           lt-find 'expr1 #:show (= stage expr))
+          lt-find 'expr2 #:show (= stage expr))
+         lt-find 'sc #:show (= stage side-condition))
+        lt-find 'lookup #:show (= stage built-in))
+       lt-find 'metafunction #:show (= stage metafunction))
+      (blank 60)      
+      (show
+       (with-size 40
+        (vl-append
+         gap-size
+         @ct{elookup〈econs〈x v _〉 x〉 ↦ v}
+         @ct{elookup〈econs〈_ _ ρ〉 x〉 ↦ (elookup ρ y)}))
+       (= stage metafunction))
+      ))
    
+#|
+ (show
+       (scale
+        (latex->pict
+         (string-join
+          (list
+           "\\begin{align*}"
+           "p \\in \\mathit{Pattern} &::= x \\texttt{:=} p \\mid n\\langle p \\ldots\\rangle"
+           "\\mid \\texttt{Address} \\mid \\texttt{(External}\\ E\\texttt{)} \\mid \\texttt{\\_} \\\\"
+           "&x \\equiv x \\texttt{:=} \\texttt{\\_}"
+           "\\end{align*}")
+          "\n"))
+        3)
+       (>= stage pat-grammar))
+|#
+
    (define/staged my-language
      #:stages [grammar variants externals
                        allocators store-interaction mode
@@ -1049,8 +1148,7 @@ If you want the giant hack, well, read on.
            (string-join
             (list
              "\\begin{align*}"
-             "p \\in \\mathit{Pattern} &::= x \\texttt{:=} p \\mid \\texttt{(}n\\ p \\ldots\\texttt{)}"
-             "\\mid \\texttt{Address} \\mid \\texttt{(External}\\ E\\texttt{)} \\mid \\texttt{\\_} \\\\"
+             
 
              "e \\in \\mathit{Expr} &::= x \\mid"
              "\\texttt{(}n\\ \\mathit{tag}\\ e \\ldots\\texttt{)} \\mid"
@@ -1145,7 +1243,7 @@ If you want the giant hack, well, read on.
      (define-values (px py) (mk-center 0 0 pushed circ-push))
      (define stack-graph
        (show
-        (vc-append @ct{Contexts}
+        (vc-append @ct{Ξ}
                    (pdf->pict contexts-path 0.9))
         (= stage 3)))
      (define stack
@@ -1167,88 +1265,99 @@ If you want the giant hack, well, read on.
      #:title (with-size 70 @kt{Relevance is powerful})
      (show (stack-push stage) (>= stage top)))
 
-   (define/staged relevance-useful #:stages [useful list trick]
+   (define/staged relevance-useful #:stages [useful trick meaning]
      #:name 'relevance-useful
      #:title (with-size 70 @kt{Relevance is useful})
      (with-size 50
        (cc-superimpose
-        (show
+        (vc-append
+         50
          (vl-append gap-size
                     @ic{Garbage collection}
                     @ic{Access control security}
-                    @ic{Continuation marks}
-                    (hc-append (blank 40) @ic{Configuration})
-                    (hc-append (blank 40) @ic{User-programmable context}))
-         (>= stage list))
-        (show (shadow-frame @ic{Stack property ∈ Context}) (>= stage trick)))))
+                    @ic{Continuation marks})
+         (vl-append gap-size
+                    (show @ic{Each stack property ∈ Context} (>= stage trick))
+                    (show @ic{States delineated by stack property} (>= stage meaning)))))))
 
-   (define/staged relevance-memoization #:stages [base diff then subst]
-     #:name 'relevance-memoization
-     #:title (with-size 70 @kt{Relevance justifies short-circuiting})
-     (with-size 50
-      (define expr (colorize @ct{e} "darkgreen"))
-      (define ctx (colorize (filled-ellipse 20 20) "darkgreen"))
-      (define out (colorize @ct{〈v,σ〉} "darkgreen"))
-      (define cont1 (colorize @ct{cont} "darkgreen"))
-      (define cont2 (colorize @ct{cont} "cadet blue"))
-      (vl-append
-       gap-size
-       (hc-append @ic{Run } expr @ic{ in }
-                   ctx @ic{ with } cont1
-                   @ic{ to } out @ic{ with } cont1)
-       (show
-        (hc-append @ic{Later see } expr @ic{ in } ctx @ic{ with } cont2)
-        (>= stage diff))
-       (show
-        (hc-append @ic{Immediately jump to } out @ic{ with } cont2)
-        (>= stage then))
-       (show @ic{Irrelevance means substitutability}
-        (>= stage subst)))))
-
-   (define/staged oneness-intro #:stages [uses relation equality]
+   (define/staged oneness-intro #:stages [uses relation]
      #:title (with-size 70 @kt{The importance of “oneness”})
      #:name 'oneness
      (with-size 50
        (vl-append
-        gap-size
+        30
         (vl-append (hc-append @ic{Observable allocation})
                    (blank 15)
                    (hc-append (blank 50) @tt{ref ()} @ic{, } @tt{(gensym)} @ic{, etc.})
-                   (show @ic{Oneness and sameness are related} (>= stage relation))
-                   (show @ic{Equality motivated this language} (>= stage equality))))))
+                   (show @ic{Oneness and sameness are related} (>= stage relation))))))
 
-   (define/staged oneness-problem #:stages [question of-course follow-up abs concretization ctx ctx2]
+   (define/staged oneness-problem #:stages [setup question of-course gg-dude
+                                                  abs-setup
+                                                  follow-up
+                                                  abs concretization ctx ctx2]
      (with-size 50
-       (vl-append
-        gap-size
-        (show (hc-append @ic{Question: Does } @ct{a} @ic{ equal } @ct{a} @ic{?})
-              (>= stage question))
-        (show @kt{Of course!} (>= stage of-course))
-        (blank 20)
-        (show (hc-append @ic{Question: Does } @ct{â} @ic{ equal } @ct{â} @ic{? }
-                         (pict-cond
-                          [(or (= stage abs) (= stage concretization)) @ic{Well...}]
-                          [(= stage ctx) (colorize @ic{Yes!} "firebrick")]
-                          [(= stage ctx2) (colorize @ic{Maybe?} "olive")]))
-              (>= stage follow-up))
-        (hc-append (show (pdf->pict addresses-path) (>= stage abs))
-                   (pict-cond #:combine lt-superimpose
-                    [(= stage concretization) (pdf->pict gamma-path)]
-                    [(= stage ctx) (pdf->pict gamma1-path)]
-                    [(= stage ctx2) (pdf->pict gammaω-path)])))))
+       (if (<= stage gg-dude)
+           (vc-append
+            50
+            (vl-append
+             gap-size
+             (show (hc-append gap-size
+                              @ic{Concrete: both}
+                              (colorize @ct{f} "darkgreen")
+                              @ic{and}
+                              (colorize @ct{g} "darkgreen")
+                              @ic{allocated at}
+                              (colorize @ct{a} "firebrick"))
+                   (>= stage setup))
+             (show (hc-append gap-size @ic{Question: are}
+                              (colorize @ct{f} "darkgreen")
+                              @ic{and}
+                              (colorize @ct{g} "darkgreen")
+                              @ic{equal?})
+                   (>= stage question)))
+            (show @kt{Of course!} (>= stage of-course))
+            (show @kt{Good job.} (>= stage gg-dude)))
+           (vl-append
+            gap-size
+            (show
+             (hc-append gap-size
+                        @ic{Abstract: both}
+                        (colorize @ct{f} "darkgreen")
+                        @ic{and}
+                        (colorize @ct{g} "darkgreen")
+                        @ic{allocated at}
+                        (colorize @ct{â} "firebrick"))
+             (>= stage abs-setup))
+            (show
+             (hc-append gap-size @ic{Question: are}
+                        (colorize @ct{f} "darkgreen")
+                        @ic{and}
+                        (colorize @ct{g} "darkgreen")
+                        @ic{equal?}
+                        (pict-cond
+                         [(or (= stage abs) (= stage concretization)) @ic{Well...}]
+                         [(= stage ctx) (colorize @ic{Yes!} "firebrick")]
+                         [(= stage ctx2) (colorize @ic{Maybe?} "olive")]))
+             (>= stage follow-up))
+            (hc-append (show (pdf->pict addresses-path) (>= stage abs))
+                       (pict-cond #:combine lt-superimpose
+                                  [(= stage concretization) (pdf->pict gamma-path)]
+                                  [(= stage ctx) (pdf->pict gamma1-path)]
+                                  [(= stage ctx2) (pdf->pict gammaω-path)]))))))
 
-   (define/staged oneness-solution #:stages [how proof]
+   (define (oneness-solution)
      (with-size 50
-       (vl-append
-       gap-size
-       (show (hc-append @ic{Semantics tracks oneness [Might 2006]}) (>= stage how))
-       (show (hc-append @ic{Bisimilarity with concrete semantics}) (>= stage proof)))))
-)
+       (slide
+        #:title (with-size 50 @kt{Solution})
+        (vc-append 50
+                   (hc-append gap-size @kt{Count allocations} @ic{[Might 2006]})
+                   (hc-append @kt{Mediate all allocation}))))))
 
 (module+ sections
   (require (submod ".." slide-deck))
-  (provide intro-to-thesis semantics-to-aam example finite pushdown small-pdcfa
+  (provide intro-to-thesis semantics-to-aam AAM OAAM example finite pushdown small-pdcfa
            shifting-gears AAML related lazy redex-great)
+
   (define (intro-to-thesis)
     (title)
     (run-stages wonderful)
@@ -1259,7 +1368,7 @@ If you want the giant hack, well, read on.
     (run-stages semantics)
     (run-stages aam?)
     (run-stages (grinder #t) #:stage '(static big-semantics (output . 0)))
-    (run-stages what-is-CESK))
+    )
 
   (define (example)
     ;; We've got some time. Let's evaluate Ω.
@@ -1278,6 +1387,10 @@ If you want the giant hack, well, read on.
     (run-stages aam-code)
     (run-stages wins-of-aam)
     (run-stages aam-drawbacks))
+
+  (define (AAM)
+    (example)
+    (finite))
 
   (define/staged small-pdcfa #:stages [entirety general specific]
     (ct-superimpose
@@ -1383,7 +1496,7 @@ If you want the giant hack, well, read on.
                  (add-reduction! s (state v σ κ)))])))
          0.4))))))
 
-(define (pushdown)
+  (define (pushdown)
     (run-stages talk-outline #:stage 'pushdown)
     (run-stages why-not-aam)
     (run-stages fib-analogy)
@@ -1395,9 +1508,27 @@ If you want the giant hack, well, read on.
     (run-stages fix-zoom)
     (run-stages relevance)
     (run-stages relevance-useful)
-    (run-stages relevance-memoization)
     (run-stages small-pdcfa)
     (run-stages pd-results))
+
+  (define (lazy)
+    (run-stages when-lookup))
+
+  (define (OAAM)
+    (run-stages talk-outline #:stage 'oaam)
+    (run-stages (talk-focus #t))
+    (lazy)
+    (slide #:title (with-size 50 @kt{Evaluation})
+           (vc-append (force speedup-pict)
+                      (blank 100)
+                      @t{No observed precision change}))
+    (same-ballpark)
+    (slide #:title (with-size 50 @kt{Drawbacks to OAAM})
+           (with-size 50 @t{By-hand})
+           'next
+           (with-size 50 @t{Several steps to apply})
+           'next
+           (with-size 50 @t{Output less readable than input})))
 
   (define (shifting-gears)
     (slide
@@ -1413,32 +1544,50 @@ If you want the giant hack, well, read on.
       (scale (bitmap samuel-path) 0.5)))
     (run-stages talk-outline #:stage 'language))
 
-    (define (lazy)
-      (run-stages when-lookup)
-      (run-stages yada))
-
-    (define (AAML)
-      (run-stages lang-intro)
-      (run-stages my-language)
-      (run-stages oneness-intro)
-      (run-stages oneness-problem)
-      (run-stages oneness-solution)
-      (slide (pin-over (blank SCREEN-WIDTH SCREEN-HEIGHT)
-                       -20 -20
-                       (bitmap one-ring-path)))
-
-      #|
-
-      What do I want to get across with the language design?
-      I have metafunctions, I have external values/metafunctions.
-
-      ;; If the env were in the monad, match would be able to hide the choose-refinement bit.
-      ;; Monad operations: return, bind, resolve, update, lookup,
-      ;; choose-refinement, alloc, make-variant
-
-      |#
-
-    )
+  (define (identity-in-the-abstract)
+    (run-stages oneness-intro)
+    (run-stages oneness-problem)
+    (run-stages oneness-solution))
+  
+  (define (AAML)
+    (run-stages aaml-motivation)
+    (run-stages thocon-problem)
+    (run-stages thocon-example)
+    (identity-in-the-abstract)
+    (with-size 60
+      (slide @kt{I tried by hand.}
+             'next
+             @kt{I failed.}
+             'next
+             @kt{I wrote a language to help.}))
+    (run-stages lang-intro)
+    (run-stages example-rule)
+    (slide #:title (with-size 50 (kt "Extensibility with externals"))
+           (with-size 50 @ic{Closures are nice, but what about...})
+           'next
+           (with-size 50 @ic{Strings? Integers? Floats? Vectors?})
+           'next
+           (with-size 40 (hc-append gap-size @iic{External values:} @ct{⊔, ≡, ⊑}))
+           'next
+           (hc-append @iic{External metafunctions, e.g., }
+                      @ct{append} @ic{, } @ct{+} @ic{, } @ct{vector-ref})
+           )
+    (with-size 60
+      (slide
+       @ic{Write your language as an AM}
+       'next
+       @ic{Give finite allocation functions.}
+       'next
+       @ic{Presto! Computable approximation.}))
+    (with-size 50
+     (slide #:title (with-size 50 @kt{Drawbacks of AAML})
+            @ic{Current implementation slow}
+            'next
+            @ic{Small library of external domains}
+            'next
+            @ic{Allocation functions are tedious.}
+            'next
+            @ic{But! Prototype type system can help.})))
 
     (define (redex-great)
       (slide (pin-over
@@ -1461,47 +1610,20 @@ If you want the giant hack, well, read on.
                gap-size
                (blank 40)
                (vl-append gap-size
-                          @ct{Analysis implementation}
-                          @ct{Pushdown analysis}
-                          @ct{Semantic frameworks}
-                          @ct{Analysis synthesis})))))
+                          @ct{Analysis implementation: Olin's diss (store counting)}
+                          @ct{Pushdown analysis: CFA2/PDCFA}
+                          @ct{Semantic frameworks: PLT Redex}
+                          @ct{Analysis synthesis: Matching Logic})))))
 
-    (slide #:title (with-size 60 @ic{Related Work (Implementation)})
-           #:name 'rw-impl
-           @t{Olin's kCFA}
-           @t{Constraint-based analysis [Heintze 93] [Steckler,Wand 96]}
-           @t{Abstract compilation [Boucher,Feeley 96]}
-           @t{Structural AI (Astrée)})
+    #|
+    Specifically
+    @t{Olin's kCFA}
+    @t{CFA2 and PDCFA}
+    @t{PLT Redex}
+    @t{Matching logic (K framework)}
+    |#
 
-    (slide #:title (with-size 60 @ic{Related Work (Pushdown)})
-           #:name 'rw-pushdown
-           @t{CFA2 and PDCFA}
-           @t{Neil Jones' pushdown analysis}
-           @t{WPDS++}
-           @t{HORS})
-
-    (slide #:title (with-size 60 @ic{Related Work (Semantics)})
-           #:name 'rw-semantics
-           @t{PLT Redex}
-           @t{K framework}
-           @t{Term reduction systems})
-
-    (slide #:title (with-size 60 @ic{Related Work (Synthesis)})
-           #:name 'rw-synth
-           @t{Flow logic}
-           @t{Matching logic (K framework)}
-           @t{HOIST}
-           @t{PostHat and all that})
-
-    (slide #:title (with-size 60 @ic{Future work})
-           #:name 'future
-           @ic{Synthesize allocators: type system identifies recursion}
-           @ic{Explicit allocation: adjunction type}
-           @ic{OAAM techniques}
-           @ic{Linguistic support for pushdown}
-           @ic{Abstraction testing}
-           'next
-           @ic{Black holes?})))
+    ))
 
 (module+ main
   (require (submod ".." slide-deck)
@@ -1513,15 +1635,12 @@ If you want the giant hack, well, read on.
   (run-stages thesis-slide #:stage 'semantics)
   (semantics-to-aam)
 
-  (example) ;; squish + problem
-  (finite) ;; how to finitize, what AAM gives you, what is wrong
+  (AAM)
 
   ;; Finitizing the stack is actually not necessary.
   (pushdown)
 
-  (run-stages talk-outline #:stage 'oaam)
-  (run-stages (grinder #t) #:stage '(output faster-output))
-  (lazy)
+  (OAAM)
 
   (shifting-gears)
 
@@ -1535,19 +1654,52 @@ If you want the giant hack, well, read on.
 
   (slide (with-size 40 (ic "Proposal vs. Dissertation"))
          (ht-append gap-size
-                    (vl-append (ic "Proposal")
+                    (vl-append (ibc "Proposal")
                                (ic "Sparseness")
                                (ic "Pushdown shift/reset")
                                (ic "Pushdown stack inspection")
                                (ic "Verify Temporal HO-contracts"))
 
-                    (vl-append (ic "Dissertation")
+                    (vl-append (ibc "Dissertation")
                                (ic "Cut")
                                (ic "Proved/unevaluated")
-                               (ic "Proved/unevaluated")
-                               (ic "Semantics / language"))))
+                               (ic "Proved/~evaluated")
+                               (ic "Just Semantics / language"))))
 
   (redex-great)
+
+  (slide #:title (with-size 60 @ic{Ext. Related Work (Implementation)})
+         #:name 'rw-impl
+         @t{Constraint-based analysis [Heintze 93] [Steckler,Wand 96]}
+         @t{Abstract compilation [Boucher,Feeley 96]}
+         @t{Structural AI (Astrée)})
+
+  (slide #:title (with-size 60 @ic{Ext. Related Work (Pushdown)})
+         #:name 'rw-pushdown
+         @t{Neil Jones' pushdown analysis}
+         @t{WPDS++}
+         @t{HORS})
+  
+  (slide #:title (with-size 60 @ic{Ext. Related Work (Semantics)})
+         #:name 'rw-semantics
+         @t{K framework}
+         @t{Term reduction systems})
+  
+  (slide #:title (with-size 60 @ic{Ext. Related Work (Synthesis)})
+         #:name 'rw-synth
+         @t{Flow logic}
+         @t{Rhodium}
+         @t{PostHat and all that})
+
+  (slide #:title (with-size 60 @ic{Future work})
+         #:name 'future
+         @ic{Synthesize allocators: type system identifies recursion}
+         @ic{Explicit allocation: adjunction type}
+         @ic{OAAM techniques}
+         @ic{Linguistic support for pushdown}
+         @ic{Abstraction testing}
+         'next
+         @ic{Black holes?})
   )
 
 (module+ test
@@ -1555,7 +1707,8 @@ If you want the giant hack, well, read on.
            (submod ".." sections))
 
 ;  (run-stages pd-diagram)
-  (run-stages pd-results)
+
+  (OAAM)
 ;  (run-stages memo-machine)
 ;  (finite)
   )
