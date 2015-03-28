@@ -366,12 +366,21 @@ If you want the giant hack, well, read on.
       (in-sawasdee
        (vc-append
         gap-size
-        (hc-append (tag-pict (hc-append (tag-pict (t "Precise ") 'precise) (t "and ") (tag-pict (t "performant") 'perf)) 'measure)
+        (hc-append (tag-pict (hc-append (tag-pict (t "Precise ") 'precise)
+                                        (t "and ") (tag-pict (t "performant") 'perf)) 'measure)
                    (t " analyses for higher-order languages"))
-        (hc-append (t "can be ") (tag-pict (t "systematically and algorithmically constructed") 'systematic))
+        (hc-append (t "can be ") (tag-pict
+                                  (hc-append (tag-pict (t "systematically") 'systematic)
+                                             (t " and ")
+                                             (tag-pict (t "algorithmically") 'algorithmic)
+                                             (tag-pict (t " constructed") 'constructed))
+                                  'whole-construction))
         (hc-append (t " from their ") (tag-pict (t "semantics.") 'semantics))))))
 
-  (define/staged thesis-slide #:stages [statement built measure semantics]
+  (define/staged thesis-slide #:stages [statement built measure semantics
+                                                  performant/systematic
+                                                  precise/performant/systematic
+                                                  precise/automatic]
     #:name 'thesis
     (with-size 30
       (in-sawasdee
@@ -380,20 +389,34 @@ If you want the giant hack, well, read on.
           (hilight-tag
            (hilight-tag
             (hilight-tag
-             thesis-pict lt-find 'systematic #:show (<= built stage measure))
-            lt-find 'measure #:show (= stage measure))
-           lt-find 'semantics #:show (= stage semantics))
+             (hilight-tag
+              (hilight-tag
+               (hilight-tag
+                (hilight-tag
+                 (hilight-tag
+                  thesis-pict lt-find 'whole-construction #:show (<= built stage measure))
+                 lt-find 'measure #:show (= stage measure))
+                lt-find 'semantics #:show (= stage semantics))
+               lt-find 'systematic #:show (or (= stage performant/systematic)
+                                              (= stage precise/performant/systematic)))
+              lt-find 'constructed #:show (or (member stage (list performant/systematic
+                                                                  precise/performant/systematic
+                                                                  precise/automatic))))
+             lt-find 'algorithmic #:show (= stage precise/automatic))
+            lt-find 'precise #:show (member stage (list precise/automatic
+                                                 precise/performant/systematic)))
+           lt-find 'perf #:show (member stage (list performant/systematic
+                                                   precise/performant/systematic)))
           (inset (big (bt "Thesis:")) 10)))
        (define build-text (big (t "I built and proved")))
        (define build-arrow
          (pin-arrow-line 15
                          (pin-over bg -30 300 build-text)
                          build-text ct-find
-                         (first (find-tag bg 'systematic)) cb-find
+                         (first (find-tag bg 'whole-construction)) cb-find
                          #:start-angle (* 1/3 pi)
                          #:end-angle (* 2/3 pi)))
        (match stage
-         [(or (== statement) (== semantics)) bg]
          [(== built) build-arrow]
          [(== measure)
           (define measure-text (big (t "I evaluated")))
@@ -402,7 +425,8 @@ If you want the giant hack, well, read on.
                           measure-text cb-find
                           (first (find-tag bg 'measure)) ct-find
                           #:start-angle (* -1/3 pi)
-                          #:end-angle (* -1/2 pi))]))))
+                          #:end-angle (* -1/2 pi))]
+         [else bg]))))
 
   (define ((focus-on unfocused focused current-stage) pict stage)
     (if (or (and (list? stage) (member current-stage stage))
@@ -796,7 +820,7 @@ If you want the giant hack, well, read on.
     (vc-append
      (vl-append gap-size
                 @ic{Define higher-order monotone framework [Kam,Ullman 77]}
-                @ic{Reconstruct Olin's dissertation}
+                @ic{Reconstruct Olin's dissertation [Shivers 91]}
                 @ic{Justify lightweight closure conversion [Steckler,Wand 97]})
      (blank 50)
      (show @ic{Almost.} (>= stage almost))
@@ -1074,7 +1098,7 @@ If you want the giant hack, well, read on.
         (vc-append
          (ht-append
           gap-size
-          (tag-pict @ct{ev〈x ρ κ〉} 'pat1)
+          (tag-pict @ct{ev〈(x := Name) ρ κ〉} 'pat1)
           @ct{↦}
           (vl-append
            gap-size
@@ -1356,7 +1380,7 @@ If you want the giant hack, well, read on.
 (module+ sections
   (require (submod ".." slide-deck))
   (provide intro-to-thesis semantics-to-aam AAM OAAM example finite pushdown small-pdcfa
-           shifting-gears AAML related lazy redex-great)
+           shifting-gears AAML related redex-great)
 
   (define (intro-to-thesis)
     (title)
@@ -1509,20 +1533,20 @@ If you want the giant hack, well, read on.
     (run-stages relevance)
     (run-stages relevance-useful)
     (run-stages small-pdcfa)
-    (run-stages pd-results))
+    (run-stages pd-results)
+    (run-stages thesis-slide #:stage 'precise/performant/systematic))
 
-  (define (lazy)
-    (run-stages when-lookup))
 
   (define (OAAM)
     (run-stages talk-outline #:stage 'oaam)
     (run-stages (talk-focus #t))
-    (lazy)
+    (run-stages when-lookup)
     (slide #:title (with-size 50 @kt{Evaluation})
            (vc-append (force speedup-pict)
                       (blank 100)
                       @t{No observed precision change}))
     (same-ballpark)
+    (run-stages thesis-slide #:stage 'performant/systematic)
     (slide #:title (with-size 50 @kt{Drawbacks to OAAM})
            (with-size 50 @t{By-hand})
            'next
@@ -1579,6 +1603,7 @@ If you want the giant hack, well, read on.
        @ic{Give finite allocation functions.}
        'next
        @ic{Presto! Computable approximation.}))
+    (run-stages thesis-slide #:stage 'precise/automatic)
     (with-size 50
      (slide #:title (with-size 50 @kt{Drawbacks of AAML})
             @ic{Current implementation slow}
@@ -1602,18 +1627,30 @@ If you want the giant hack, well, read on.
   (define (related)
     (run-stages talk-outline #:stage 'related)
     (slide #:title (with-size 60 @ic{Related Work})
-           (with-size 50
+           (with-size 40
              (vl-append
               gap-size
-              @ct{Four categories:}
+              (with-size 50 @ct{Four categories:})
               (ht-append
                gap-size
                (blank 40)
-               (vl-append gap-size
-                          @ct{Analysis implementation: Olin's diss (store counting)}
-                          @ct{Pushdown analysis: CFA2/PDCFA}
-                          @ct{Semantic frameworks: PLT Redex}
-                          @ct{Analysis synthesis: Matching Logic})))))
+               (vl-append 10
+                          @ct{Analysis implementation:}
+                          (hc-append (blank 50)
+                                     @ct{kCFA}
+                                     (with-size 25 @ct{[Shivers 88]}))
+                          @ct{Pushdown analysis:}
+                          (hc-append (blank 50)
+                                     @ct{CFA2}
+                                     (with-size 25 @ct{[Vardoulakis,Shivers 2011]}))
+                          @ct{Semantic frameworks:}
+                          (hc-append (blank 50)
+                                     @ct{PLT Redex}
+                                     (with-size 25 @ct{[Felleisen et. al. 2009]}))
+                          @ct{Analysis synthesis:}
+                          (hc-append (blank 50)
+                                     @ct{Matching Logic}
+                                     (with-size 25 @ct{[Rosu,Stephanescu 2012]})))))))
 
     #|
     Specifically
@@ -1682,7 +1719,7 @@ If you want the giant hack, well, read on.
   
   (slide #:title (with-size 60 @ic{Ext. Related Work (Semantics)})
          #:name 'rw-semantics
-         @t{K framework}
+         @t{K framework [Serbanuta et. al. 2012]}
          @t{Term reduction systems})
   
   (slide #:title (with-size 60 @ic{Ext. Related Work (Synthesis)})
@@ -1708,7 +1745,7 @@ If you want the giant hack, well, read on.
 
 ;  (run-stages pd-diagram)
 
-  (OAAM)
+  (related)
 ;  (run-stages memo-machine)
 ;  (finite)
   )
