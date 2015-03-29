@@ -50,6 +50,10 @@ Related work needs trimming, better formatting, and small summaries of relation.
 
 
 
+
+
+
+
 So you intentionally scrolled down to see the code.
 
 Welcome to the code for my defense talk. If you are not J. Ian Johnson (me),
@@ -195,7 +199,8 @@ If you want the giant hack, well, read on.
            thesis-slide talk-outline
            semantics aam? concrete->abstract
            big-states finitize aam-code
-           pd-diagram fib-analogy fib-insights memo-machine substitutional-relevance 
+           pd-diagram pd-memo-diagram fib-analogy fib-insights
+           substitutional-relevance 
            pd-results
            wins-of-aam aam-drawbacks
            finite-structure when-lookup
@@ -408,14 +413,16 @@ If you want the giant hack, well, read on.
            lt-find 'perf #:show (member stage (list performant/systematic
                                                    precise/performant/systematic)))
           (inset (big (bt "Thesis:")) 10)))
-       (define build-text (big (t "I built and proved")))
+       (define build-text (big (t "I built and proved correct")))
        (define build-arrow
          (pin-arrow-line 15
                          (pin-over bg -30 300 build-text)
                          build-text ct-find
-                         (first (find-tag bg 'whole-construction)) cb-find
+                         (first (find-tag bg 'whole-construction))
+                         (λ (p f) (define-values (x y) (cb-find p f))
+                            (values (- x 200) y))
                          #:start-angle (* 1/3 pi)
-                         #:end-angle (* 2/3 pi)))
+                         #:end-angle (* 1/2 pi)))
        (match stage
          [(== built) build-arrow]
          [(== measure)
@@ -556,6 +563,13 @@ If you want the giant hack, well, read on.
                                                         true-positive
                                                         false-positive
                                                         true-negative]
+    #:title (λ (stage)
+               (with-size 50
+                (cond
+                 [(<= stage infinite)
+                  (kt "Reachability is undecidable")]
+                 [(>= stage crush)
+                  (kt "Abstraction: representation vs. denotation")])))
     #:anim-at [infinite #:skip-first #:steps states-to-step #:delay 0.5]
     #:anim-at [crush #:skip-first]
 
@@ -857,20 +871,74 @@ If you want the giant hack, well, read on.
   ;; 1: lines and shapes
   ;; 2: 1 + circle call trace
   ;; 3: 1 + circle whole call and add dotted skip line.
-  (define (call-diagram call-style mode)
+  (define (call-diagram call-style mode left? state?)
+    (define (mk) (colorize (filled-ellipse 25 25) "darkgreen"))
+    (define lκ (colorize (ct "κ") "darkgreen"))
+    (define rκ (colorize (ct "κ") "cadetblue"))
+    (define hspace (if state? 0 100))
+    (define vspace (if state? 10 50))
+    (define-values (cx cy)
+      (if state?
+          (values 300 550)
+          (values 40 425)))
+    (define-values (rx ry)
+      (if state?
+          (values 220 120)
+          (values 30 80)))
+    (define-values (cs-find ce-find rs-find rp-find)
+      (if state?
+          (values lc-find
+                  (if (>= mode 1) rc-find cb-find)
+                  (if (>= mode 2) rc-find cb-find)
+                  (if (>= mode 2) lc-find ct-find))
+          (values (if (>= mode 1) lc-find cc-find)
+                  (if (>= mode 1) rc-find cb-find)
+                  rt-find
+                  lb-find)))
     (define call-site
-      (show (colorize (filled-rectangle 25 25) "darkgreen") (>= mode 1)))
+      (if state?
+          (pin-over
+           (hc-append (ct "〈") (if (= mode 0)
+                                    (ct "call heap₀")
+                                    (mk))
+                      (ct " ") lκ (ct "〉"))
+           -25 -100
+           (show (hc-append (ct "Ξ⊔[")
+                            (mk)
+                            (ct " ↦ {")
+                            lκ
+                            (if (>= mode 3) (hc-append (ct ", ") rκ) (blank 0))
+                            (ct "}]")) (>= mode 1)))
+          (show (mk) (>= mode 1))))
+    (define call-site2
+      (hc-append (ct "〈") (if (= mode 0)
+                               (ct "call heap₀")
+                               (mk))
+                 (ct " ") rκ (ct "〉")))
     (define call-entry
-      (show (colorize (filled-ellipse 25 25) "darkgreen") (>= mode 1)))
-    (define return-site (blank 0))
-    (define return-point (blank 0))
+      (show (if state?
+                (hc-append (ct "〈") (ct "body heap₁ ") (ct "(memo ") (mk) (ct ")") (ct "〉"))
+                (mk)) (>= mode 1)))
+    (define return-site (if state?
+                            (show (hc-append (ct "〈v heap₂ (memo ") (mk) (ct ")〉"))
+                                  (>= mode 2))
+                            (blank 0)))
+    (define return-point (if state?
+                             (pin-over
+                              (show (hc-append (ct "〈v heap₂ ") lκ (ct "〉")) (>= mode 2))
+                              -25 100
+                              (show (hc-append (ct "M⊔[") (mk) (ct "↦ {〈v,heap₂〉}]")) (>= mode 2)))
+                             (blank 0)))
+    (define return-point2 (show (hc-append (ct "〈v heap₂ ") rκ (ct "〉")) (>= mode 3)))
     (define return-ongoing (blank 0))
+    (define return-ongoing2 (blank 0))
     (define call-incoming (blank 0))
+    (define call-incoming2 (blank 0))
     (define outer-call
       (pin-arrow-line
        15
        (vc-append return-site (blank 1 200) call-entry)
-       call-entry cb-find #:under? #t
+       call-entry (if (and state? (>= mode 1)) ct-find cb-find) #:under? #t
        return-site cb-find))
     (define call-return
       (pin-arrow-line
@@ -880,18 +948,39 @@ If you want the giant hack, well, read on.
         (vc-append return-ongoing
                    (blank 100)
                    return-point
-                   (blank 50)
-                   (ghost outer-call)
-                   (blank 50)
+                   (blank (+ 100 (pict-height outer-call)))
                    call-site
                    (blank 100)
                    call-incoming)
         call-incoming ct-find
-        call-site (if (>= mode 1) cb-find cc-find)
+        call-site (if state? cb-find (if (>= mode 1) cb-find cc-find))
         #:line-width 8 #:style call-style)
        return-point ct-find
        return-ongoing cb-find
        #:line-width 8 #:style call-style))
+    (define call-return2
+      (pin-arrow-line
+       15
+       (pin-arrow-line
+        15
+        (pin-arrow-line
+         15
+         (vc-append return-ongoing2
+                    (blank 100)
+                    return-point2
+                    (blank (+ 100 (pict-height outer-call)))
+                    call-site2
+                    (blank 100)
+                    call-incoming2)
+         call-incoming2 ct-find
+         call-site2 cb-find
+         #:line-width 8 #:style 'long-dash)
+        return-point2 ct-find
+        return-ongoing2 cb-find
+        #:line-width 8 #:style 'long-dash)
+       call-site2 ct-find
+       return-point2 cb-find
+       #:line-width 2 #:style 'dot))
     (define out
       (panorama
        (pin-over
@@ -901,44 +990,58 @@ If you want the giant hack, well, read on.
           (pin-arrow-line
            15
            (hc-append
-            (pin-under-center outer-call
-                              (/ (pict-width outer-call) 2)
-                              (/ (pict-height outer-call) 2)
-                              (show (ellipse (* 1.6 (pict-width outer-call))
-                                             (* 1.6 (pict-height outer-call)))
-                                    (= mode 2)))
-            (blank 100)
+            (if state?
+                outer-call
+                (pin-under-center outer-call
+                                  (/ (pict-width outer-call) 2)
+                                  (/ (pict-height outer-call) 2)
+                                  (show (ellipse (* 1.6 (pict-width outer-call))
+                                                 (* 1.6 (pict-height outer-call)))
+                                        (= mode 2))))
+            (blank hspace)
             call-return)
-           call-site (if (>= mode 1) lc-find cc-find)
-           call-entry (if (>= mode 1) rc-find cb-find))
-          return-site rt-find
-          return-point lb-find)
-         40 425 (ic "Call"))
-        30 80 (ic "Return"))))
+           call-site cs-find
+           call-entry ce-find)
+          return-site rs-find
+          return-point rp-find)
+         cx cy (ic "Call"))
+        rx ry (ic "Return"))))
     (define (polyfill base point-images)
       (define points
         (for/list ([img (in-list point-images)])
           (define-values (x y) (cc-find base img))
           (list x y)))
       (filled-polygon points #:color '(210 210 210) #:fill-style 'crossdiag-hatch))
-    (if (= mode 3)
-        (lt-superimpose
-         (pin-over
-          (polyfill (ghost out)
-                    (list call-site call-entry return-site return-point))
-          50 250
-          @ic{Skip})
-         out)
-        out))
+    (if state?
+        (pin-arrow-line
+         15
+         (hc-append out (show call-return2 (= mode 3)))
+         return-site rs-find
+         return-point2 lc-find
+         #:style (if (= mode 3) 'solid 'transparent)
+         #:hide-arrowhead? (not (= mode 3)))
+        (if (= mode 3)
+            (lt-superimpose
+              (pin-over
+               (polyfill (ghost out)
+                         (list call-site call-entry return-site return-point))
+               50 250
+               @ic{Skip})
+              out)
+            out)))
 
   (define/staged pd-diagram #:stages [first-call package second-call short-circuit]
-    (hc-append (call-diagram 'solid (min stage second-call))
+    (hc-append (call-diagram 'solid (min stage second-call) #t #f)
                (blank 50)
                (show (with-size 50 @ct{⇒}) (>= stage second-call))
                (blank 50)
-               (show (call-diagram 'long-dash (if (= stage second-call)
-                                                  1
-                                                  stage)) (>= stage second-call))))
+               (show (call-diagram 'long-dash
+                                   (if (= stage second-call) 1 stage)
+                                   #f #f)
+                     (>= stage second-call))))
+
+  (define/staged pd-memo-diagram #:stages [package in-Ξ return-M second-call]
+    (call-diagram 'solid (min stage second-call) #t #t))
   
   (define fibm
     (code (define memo (make-hash))
@@ -969,20 +1072,6 @@ If you want the giant hack, well, read on.
             (hc-append @kt{Insight 2: only } (code n) @kt{ is relevant})
             'next
             @kt{Insight 3: store relevant if stateful})))
-
-  (define (memo-machine)
-    (define with (code (with-memoize n (fib n))))
-    (slide #:title "Memo code ⇒ machine behavior"
-           fibm
-           'next
-           (pin-under with
-                      -280 -5
-                      (colorize (filled-rectangle 1024 (* 1.2 (pict-height with)))
-                                     '(210 210 210)))
-           'next
-           (hc-append gap-size @ct{〈call heap (memo ctx)〉} @ct{Ξ⊔[ctx ↦ {cont}]})
-           'next
-           (hc-append gap-size @ct{〈v heap (memo ctx)〉} @ct{M⊔[ctx ↦ {〈v,heap〉}]})))
 
   (define (substitutional-relevance)
     (slide #:title (with-size 50 (kt "Relevance"))
@@ -1380,6 +1469,7 @@ If you want the giant hack, well, read on.
 (module+ sections
   (require (submod ".." slide-deck))
   (provide intro-to-thesis semantics-to-aam AAM OAAM example finite pushdown small-pdcfa
+           prefix
            shifting-gears AAML related redex-great)
 
   (define (intro-to-thesis)
@@ -1526,8 +1616,8 @@ If you want the giant hack, well, read on.
     (run-stages fib-analogy)
     (run-stages fib-insights)
     (run-stages pd-diagram)
-    (run-stages memo-machine)
     (run-stages fix-aam)
+    (run-stages pd-memo-diagram)
     (run-stages substitutional-relevance)
     (run-stages fix-zoom)
     (run-stages relevance)
@@ -1572,6 +1662,55 @@ If you want the giant hack, well, read on.
     (run-stages oneness-intro)
     (run-stages oneness-problem)
     (run-stages oneness-solution))
+
+  (define/staged prefix #:stages [type equiv join]
+    #:name 'prefix-domain 
+    (define epict
+      (inset
+       (vl-append
+        gap-size
+        (ct "≡(Single s, Single s) = Yes")
+        (ct "≡(_ s, _ s') | s ⊑ s' = Maybe")
+        (ct "≡(_ s, _ s') | s' ⊑ s = Maybe")
+        (ct "≡(⊤,_) = ≡(_,⊤) = Maybe")
+        (ct "≡(_,_) = No"))
+       10))
+    (define jpict
+      (inset
+       (vl-append
+        gap-size
+        (ct "⊔(Single s, Single s) = Single s")
+        (ct "⊔(_ s, _ s') | s ⊑ s' = Prefix s")
+        (ct "⊔(_ s, _ s') | s' ⊑ s = Prefix s'")
+        (ct "⊔(_,_) = ⊤"))
+       10))
+    (define y 400)
+    (ct-superimpose
+     (pin-under
+      (pin-over
+       (blank SCREEN-WIDTH SCREEN-HEIGHT)
+       -20 y
+       (show
+        (colorize (filled-rectangle 512 (- SCREEN-HEIGHT y))
+                  '(210 210 210))
+        (>= stage equiv)))
+      (- 512 20) y
+      (show
+       (colorize (filled-rectangle 512 (- SCREEN-HEIGHT y))
+                 '(180 180 180))
+       (>= stage join)))
+     (vc-append (with-size 50 (kt "Example: Prefix domain"))
+                (blank 70)
+                (vl-append
+                 gap-size
+                 (ct "s ∈ PString ::= ⊤ | Single string | Prefix string")
+                 (ct "γ(⊤) = String")
+                 (ct "γ(Single string) = {string}")
+                 (ct "γ(Prefix string) = {string}·String")
+                 (ht-append
+                  gap-size
+                  (show epict (>= stage equiv))
+                  (show jpict (>= stage join)))))))
   
   (define (AAML)
     (run-stages aaml-motivation)
@@ -1596,6 +1735,7 @@ If you want the giant hack, well, read on.
            (hc-append @iic{External metafunctions, e.g., }
                       @ct{append} @ic{, } @ct{+} @ic{, } @ct{vector-ref})
            )
+    (run-stages prefix)
     (with-size 60
       (slide
        @ic{Write your language as an AM}
@@ -1606,7 +1746,7 @@ If you want the giant hack, well, read on.
     (run-stages thesis-slide #:stage 'precise/automatic)
     (with-size 50
      (slide #:title (with-size 50 @kt{Drawbacks of AAML})
-            @ic{Current implementation slow}
+            @ic{Current implementation slow (no OAAM)}
             'next
             @ic{Small library of external domains}
             'next
@@ -1745,7 +1885,6 @@ If you want the giant hack, well, read on.
 
 ;  (run-stages pd-diagram)
 
-  (related)
-;  (run-stages memo-machine)
+  (run-stages thesis-slide)
 ;  (finite)
   )
