@@ -114,7 +114,7 @@
 (define graph2-pict (delay (pdf-scale-or-bitmap graph2-path graph2-png 0.15)))
 (define comp-store-pict (delay (pdf-scale-or-bitmap comp-store-path comp-store-png 0.4642)))
 
-(provide fanout-pict lazy-pict speedup-pict)
+(provide fanout-pict lazy-pict speedup-pict aam-pict)
 
 (define tyellow (make-object color% #xFF #xFF #x00 0.3))
 
@@ -136,7 +136,7 @@
            analysis-qualities talk-focus key-points state-to-edge
            ;; untranslated
            aam->oaam matches drama bench-overview
-           graph-show
+           graph-show same-ballpark
            ;; main function
            run-talk
            )
@@ -371,14 +371,32 @@
         fader
         (fader 1)))
 
-  (define/staged talk-focus #:stages [anim dec fast focus #;goal #;revisit]
+  (define icfp-focus
+    (hash 'store-alloc 'paper
+          'frontier 'paper
+          'lazy 0
+          'abscomp 1
+          'deltas 2
+          'σcounting 'paper
+          'mutable 'paper))
+  (define defense-focus
+    (hash 'store-alloc 'paper
+          'frontier 'paper
+          'lazy 0
+          'abscomp 'paper
+          'deltas 'paper
+          'σcounting 'paper
+          'mutable 'paper))
+  (define/staged (talk-focus defense?) #:stages [anim dec fast focus #;goal #;revisit]
     #:title (with-size 50 @t{OAAM outline})
     #:anim-at [anim #:steps 60]
     (define goal 4) ;; killed stage
     (define count (box 0))
     (define (numbers)
-      (for/vector #:length 3 ([i (in-range 3)])
-                  (t (format "~a." (add1 i)))))
+      (if defense?
+          (vector (t "*"))
+          (for/vector #:length 3 ([i (in-range 3)])
+                      (t (format "~a." (add1 i))))))
     (define (item-space last . s)
       (keyword-apply item '(#:bullet) (list (apply
                                              cc-superimpose
@@ -399,11 +417,13 @@
           (in-paper p)))
     (define (decrease paper-only? p)
       (colorize-if
-       (or (and (>= stage dec) (number? paper-only?) (< stage (add1 goal) #;revisit
-                                                        ))
+       (or (and (>= stage dec) (number? paper-only?)
+                (< stage (add1 goal) #;revisit
+                   ))
            (= stage dec)
            (= stage fast))
-       (if-paper paper-only? p) fewer-col))
+       (if-paper paper-only? p)
+       fewer-col))
     (define (faster paper-only? p)
       (colorize-if
        (or (and (>= stage fast) (number? paper-only?) (< stage (add1 goal) #;revisit
@@ -411,15 +431,16 @@
            (= stage fast))
        (if-paper paper-only? p)
        faster-col))
+    (define f (if defense? defense-focus icfp-focus))
     (with-size 44
       (define-values (i0 i1 i2 i3 i4 i5 i6)
-        (values (decrease 'paper @t{Store-allocate values})
-                (decrease 'paper @t{Frontier-based semantics})
-                (decrease 0 @t{Lazy non-determinism})
-                (decrease 1 @t{Abstract compilation})
-                (faster 2 @t{Locally log-based store-deltas})
-                (faster 'paper @t{Store-counting})
-                (faster 'paper @t{Mutable frontier and store})))
+        (values (decrease (hash-ref f 'store-alloc) @t{Store-allocate values})
+                (decrease (hash-ref f 'frontier) @t{Frontier-based semantics})
+                (decrease (hash-ref f 'lazy) @t{Lazy non-determinism})
+                (decrease (hash-ref f 'abscomp) @t{Abstract compilation})
+                (faster (hash-ref f 'deltas) @t{Locally log-based store-deltas})
+                (faster (hash-ref f 'σcounting) @t{Store-counting})
+                (faster (hash-ref f 'mutable) @t{Mutable frontier and store})))
       (define is (vector i0 i1 i2 i3 i4 i5 i6))
       (define off-screen (blank 0))
       (define placement*
@@ -676,6 +697,18 @@
                    cases))))
     (typeset-code prog))
 
+  (define (same-ballpark)
+    (slide (pin-over
+            (pin-over
+             (pin-over (blank 1024 768)
+                       -20 -20 (cc-superimpose (filled-rectangle 1024 768) (bitmap fenway-path)))
+             380 390
+             (vc-append (bitmap tweak-path)
+                        (colorize (filled-rounded-rectangle-frame @t{Hand-optimized}) "firebrick")))
+            160 125
+            (vc-append (colorize (filled-rounded-rectangle-frame (with-size 40 @t{OAAM})) "darkgreen")
+                       (filled-rounded-rectangle-frame (bitmap grinder-tiny-path))))))
+
   (define fake-match (with-size 3 (drama 1)))
   (define (matches show?)
     (slide (cc-superimpose
@@ -716,7 +749,7 @@
                ;; What do we get out of OAAM?
                (run-stages analysis-qualities)
                ;; What's in the paper, and how is it partitioned?
-               (run-stages talk-focus))
+               (run-stages (talk-focus #f)))
 
       (section recap
                (slide (with-size 60 @t{First: recap of AAM})))
@@ -885,16 +918,7 @@
                       (force bench-overview))
 
                ;; Tweak and OAAM
-               (slide (pin-over
-                       (pin-over
-                        (pin-over (blank 1024 768)
-                                  -20 -20 (cc-superimpose (filled-rectangle 1024 768) (bitmap fenway-path)))
-                        380 390
-                        (vc-append (bitmap tweak-path)
-                                   (colorize (filled-rounded-rectangle-frame @t{Hand-optimized}) "firebrick")))
-                       160 125
-                       (vc-append (colorize (filled-rounded-rectangle-frame (with-size 40 @t{OAAM})) "darkgreen")
-                                  (filled-rounded-rectangle-frame (bitmap grinder-tiny-path)))))
+               (same-ballpark)
 
                ;; AAM not in same ballpark
                (define (aam-ballpark stadium?)

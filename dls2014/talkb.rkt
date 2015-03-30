@@ -495,6 +495,14 @@ Talk outline:
   (define call-ctx0 (colorize (filled-ellipse 20 20) call0))
   (define call-ctx1 (colorize (filled-ellipse 20 20) call1))
   (define (why-not-picts show-delim wrap? use? show-block?)
+    (define delim0? (and (number? show-delim) (>= show-delim 0)))
+    (define delim1? (and (number? show-delim) (>= show-delim 1)))
+    (define req (code (read-request f)))
+    (define (req-frame col)
+      (thick-rectangle (* 1.1 (pict-width req))
+                       (* 1.1 (pict-height req))
+                       4
+                       #:color col))
     (define codes
       (vl-append gap-size
                  (show
@@ -507,8 +515,14 @@ Talk outline:
                                (blame 'user))))
                   wrap?)
                  (show
-                  (code (document.write `(p ,#,(tag-pict (code (read-request f)) 'read0)
-                                            ,#,(tag-pict (code (read-request f)) 'read1))))
+                  (pin-under-tag
+                   (pin-under-tag
+                    (code (document.write `(p ,#,(tag-pict req 'read0)
+                                              ,#,(tag-pict (code (read-request f)) 'read1))))
+                    lt-find
+                    'read0
+                    (λ _ (show (req-frame call0) delim0?)))
+                   lt-find 'read1 (λ _ (show (req-frame call1) delim1?)))
                   use?)
                  (show
                   (if (pict? show-block?)
@@ -520,9 +534,9 @@ Talk outline:
     (pin-over-vcenter codes (find-tag codes 'entry) rc-find
                       (hc-append 5
                                  (show call-ctx0
-                                       (and (number? show-delim) (>= show-delim 0)))
+                                       delim0?)
                                  (show call-ctx1
-                                       (and (number? show-delim) (>= show-delim 1))))))
+                                       delim1?))))
 
   (define/staged why-not-aam
     #:stages [say wrap use line0 line1 line2 line3 line4 cycle proper]
@@ -542,7 +556,8 @@ Talk outline:
                       #:start-angle (* 1/6 pi)
                       #:end-angle (* -1/3 pi)
                       #:start-pull 0.4 #:end-pull 0.8
-                      #:line-width call0-width #:color propcol0))
+                      #:line-width call0-width #:color propcol0
+                      #:style (if (= stage proper) 'long-dash 'solid)))
     (define call->ret
       (pin-arrow-line 15 read0->call
                       (find-tag codes 'f-call) cb-find
@@ -555,7 +570,7 @@ Talk outline:
       (pin-arrow-line 15 call->ret (find-tag codes 'return) rc-find (find-tag codes 'read0) ct-find
                       #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
                       #:line-width call0-width
-                      #:color cycol1))
+                      #:color cycol1 #:style (if (= stage proper) 'long-dash 'solid)))
     (define read1->call
       (pin-arrow-line 15 ret->read0
                       (find-tag codes 'read1) rc-find
@@ -583,38 +598,53 @@ Talk outline:
   (define/staged fix-aam
     #:stages [revisit first-call second-call]
     (define codes (why-not-picts (and (> stage revisit) (sub1 stage)) #t #t #f))
-    (define ctx (ic "Contexts = ["))
+    (define ctx (ic "Ξ = ["))
+    (define M (ic "M = ["))
     (define close (ic "]"))
-    (define call-map0 (hc-append call-ctx0 (ic " ↦ {") (colorize (ic "cont") call0) (ic "}")))
-    (define call-map1  (hc-append call-ctx1 (ic " ↦ {") (colorize (ic "cont") call1) (ic "}")))
+    (define call-map0 (hc-append call-ctx0 (ic " ↦ {") (thick-rectangle 40 25 2 #:color call0) (ic "}")))
+    (define call-map1  (hc-append call-ctx1 (ic " ↦ {") (thick-rectangle 40 25 2 #:color call1) (ic "}")))
+    (define call-memo0 (hc-append call-ctx0 (ic " ↦ {") (colorize (ic "〈⟦r⟧h₀,h₀〉") call0) (ic "}")))
+    (define call-memo1  (hc-append call-ctx1 (ic " ↦ {") (colorize (ic "〈⟦r⟧h₁,h₁〉") call1) (ic "}")))    
     (define pin-ctx
       (pin-over
        (pin-over-vcenter
         (pin-over-vcenter codes (find-tag codes 'read0) rc-find
                           (tag-pict (show call-ctx0 (>= stage first-call)) 'ctx0))
         (find-tag codes 'read1) rc-find (tag-pict (show call-ctx1 (>= stage second-call)) 'ctx1))
-       0 400 (cond
-              [(= stage revisit) (hc-append ctx close)]
-              [(= stage first-call) (hc-append ctx call-map0 close)]
-              [(= stage second-call) (hc-append ctx call-map0 (ic ", ") call-map1 close)])))
+       0 400
+       (vl-append
+        gap-size
+        ;; State of Ξ:
+        (cond
+         [(= stage revisit) (hc-append ctx close)]
+         [(= stage first-call) (hc-append ctx call-map0 close)]
+         [(= stage second-call) (hc-append ctx call-map0 (ic ", ") call-map1 close)])
+        ;; State of M:
+        (cond
+         [(= stage revisit) (hc-append M close)]
+         [(= stage first-call) (hc-append M call-memo0 close)]
+         [(= stage second-call) (hc-append M call-memo0 (ic ", ") call-memo1 close)])
+        )))
     (define read0->call
       (pin-arrow-line 15 pin-ctx (find-tag pin-ctx 'ctx0) rc-find (find-tag codes 'f-call) ct-find
                       #:start-angle (* 1/6 pi)
                       #:end-angle (* -1/3 pi)
                       #:start-pull 0.4 #:end-pull 0.8
-                      #:line-width 3 #:color call0))
+                      #:line-width 6 #:color call0
+                      #:style 'long-dash))
     (define call->ret
       (pin-arrow-line 15 read0->call
                       (find-tag codes 'f-call) cb-find
                       (find-tag codes 'return) lc-find
                       #:start-angle (* 1/6 pi)
                       #:end-angle 0
-                      #:start-pull 0.2 #:end-pull 0.7
+                      #:start-pull 0.4 #:end-pull 0.9
                       #:line-width 3))
     (define ret->read0
       (pin-arrow-line 15 call->ret (find-tag codes 'return) rc-find (find-tag pin-ctx 'read0) ct-find
                       #:start-angle 0 #:end-angle (* -1/3 pi) #:end-pull 0.4
-                      #:line-width 3
+                      #:line-width 6
+                      #:style 'long-dash
                       #:color call0))
     (define read1->call
       (pin-arrow-line 15 ret->read0
@@ -671,7 +701,7 @@ Talk outline:
                             (hc-append call-ctx0 @ct{ is } @ic{〈code heap〉}))
                  (>= stage relevance)))
      (show popup* (>= stage structure))
-     (show (hc-append call-ctx0 @ct{ are stored in a stratified heap: Contexts})
+     (show (hc-append call-ctx0 @ct{ are stored in a stratified heap: Ξ})
            (>= stage the-trick))))
 
   (define/staged non-blocking-example #:stages [recall show-code unfold problem stratify]
