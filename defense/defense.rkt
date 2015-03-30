@@ -161,7 +161,7 @@ If you want the giant hack, well, read on.
 
 (define redex-pict (scale (bitmap redex-path) 0.2))
 
-(define c-neu '(#xad 0 0))
+(define c-neu (make-object color% #xad 0 0))
 (define (title)
  (parameterize ([current-slide-assembler bg-slide-assembler])
    (slide
@@ -177,7 +177,7 @@ If you want the giant hack, well, read on.
       (colorize @ic{Thesis Defense of} c-neu)
       (colorize @cbt{J. Ian Johnson} c-neu)
       (blank 1 80)
-      (with-size 22 (colorize @ic{2015, March 30} c-neu))
+      (with-size 32 (colorize @ic{2015, March 30} c-neu))
       (blank-line))))))
 
 (define (pad-string n str s->pict)
@@ -209,17 +209,17 @@ If you want the giant hack, well, read on.
            lang-intro example-rule
            my-language oneness-intro oneness-problem oneness-solution)
 
-  (define/staged wonderful #:stages [understand flow
-                                     harden security
-                                     improve optimizations]
+  (define/staged wonderful #:stages [understand
+                                     harden
+                                     improve]
     #:name 'wonderful
-    #:title (ic "Static analysis is wonderful!")
-    (ht-append
-     gap-size
-     (vc-append
-      (colorize @ic{Understand code} "forest green")
+    (define light (make-object color% 210 210 210))
+    (define (Sh p c) (shadow p 5 5 #:color c #:shadow-color light))
+    (define U
+      (vc-append
+      (with-size 40 (Sh @ic{Understand code} "forest green"))
       (show
-       (with-size 22
+       (with-size 32
          (shadow-frame
           (table 1
                  (list @ic{Value flow}
@@ -228,12 +228,13 @@ If you want the giant hack, well, read on.
                  lt-superimpose
                  lt-superimpose
                  gap-size gap-size)))
-       (>= stage flow)))
-     (show
+       (>= stage understand))))
+    (define H
+      (show
       (vc-append
-       (colorize @ic{Harden code} c-neu)
+       (with-size 40 (Sh @ic{Harden code} c-neu))
        (show
-        (with-size 22
+        (with-size 32
           (shadow-frame
            (table 1
                   (list @ic{Crash-freedom}
@@ -243,22 +244,33 @@ If you want the giant hack, well, read on.
                   lt-superimpose
                   lt-superimpose
                   gap-size gap-size)))
-        (>= stage security)))
-      (>= stage harden))
-     (show
-      (vc-append
-       (colorize @ic{Improve code} "midnight blue")
-       (show
-        (with-size 22
-          (shadow-frame
-           (table 1
-                  (list @ic{no runtime enforcement}
-                        @ic{optimization})
-                  lt-superimpose
-                  lt-superimpose
-                  gap-size gap-size)))
-        (>= stage optimizations)))
-      (>= stage improve))))
+        (>= stage harden)))
+      (>= stage harden)))
+    (define I
+      (show
+       (vc-append
+        (with-size 40 (Sh @ic{Improve code} "midnight blue"))
+        (show
+         (with-size 32
+           (shadow-frame
+            (table 1
+                   (list @ic{no runtime enforcement}
+                         @ic{optimization})
+                   lt-superimpose
+                   lt-superimpose
+                   gap-size gap-size)))
+         (>= stage improve)))
+       (>= stage improve)))
+    (ct-superimpose
+     (pin-over
+      (pin-over
+       (pin-over
+        (blank SCREEN-WIDTH SCREEN-HEIGHT)
+        30 100
+        U)
+       500 150 H)
+      150 450 I)
+     (with-size 50 (ic "Static analysis is wonderful!"))))
 
   (define (clamp-apply stage v fn n)
     (cond
@@ -1893,6 +1905,6 @@ If you want the giant hack, well, read on.
 
 ;  (run-stages pd-diagram)
 
-  (run-stages example-rule)
+  (run-stages wonderful)
 ;  (finite)
   )
