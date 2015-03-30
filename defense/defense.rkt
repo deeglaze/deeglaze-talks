@@ -875,8 +875,7 @@ If you want the giant hack, well, read on.
     (define (mk) (colorize (filled-ellipse 25 25) "darkgreen"))
     (define lκ (colorize (ct "κ") "darkgreen"))
     (define rκ (colorize (ct "κ") "cadetblue"))
-    (define hspace (if state? 0 100))
-    (define vspace (if state? 10 50))
+    (define hspace (if state? 0 20))
     (define-values (cx cy)
       (if state?
           (values 300 550)
@@ -1172,7 +1171,8 @@ If you want the giant hack, well, read on.
 
    (define/staged example-rule #:stages [rule pattern side-condition expr
                                               built-in
-                                              metafunction]
+                                              metafunction
+                                              nonlinear]
      #:title (λ (stage)
                 (with-size 50
                  (cond
@@ -1181,6 +1181,7 @@ If you want the giant hack, well, read on.
                   [(= stage expr) @kt{Expression}]
                   [(= stage built-in) @kt{Store built-in}]
                   [(= stage metafunction) @kt{Metafunctions use ordered rules}]
+                  [(= stage nonlinear) @kt{Non-linear patterns}]
                   [else (ghost @kt{Pattern})])))
      (define rule-pict
        (with-size 40
@@ -1188,10 +1189,9 @@ If you want the giant hack, well, read on.
          (ht-append
           gap-size
           (tag-pict @ct{ev〈(x := Name) ρ κ〉} 'pat1)
-          @ct{↦}
           (vl-append
            gap-size
-           (tag-pict @ct{co〈κ v〉} 'expr1)
+           (hc-append gap-size @ct{↦} (tag-pict @ct{co〈κ v〉} 'expr1))
            (tag-pict
             (hc-append
              (ct "[where ")
@@ -1223,9 +1223,17 @@ If you want the giant hack, well, read on.
        (with-size 40
         (vl-append
          gap-size
-         @ct{elookup〈econs〈x v _〉 x〉 ↦ v}
+         (hilight-tag
+          (hilight-tag
+           (hc-append (ct "elookup〈econs〈")
+                      (tag-pict (ct "x") 'patx1)
+                      (ct " v _〉 ")
+                      (tag-pict (ct "x") 'patx2)
+                      (ct "〉 ↦ v"))
+           lt-find 'patx1 #:show (= stage nonlinear))
+          lt-find 'patx2 #:show (= stage nonlinear))
          @ct{elookup〈econs〈_ _ ρ〉 x〉 ↦ (elookup ρ y)}))
-       (= stage metafunction))
+       (>= stage metafunction))
       ))
    
 #|
@@ -1617,9 +1625,9 @@ If you want the giant hack, well, read on.
     (run-stages fib-insights)
     (run-stages pd-diagram)
     (run-stages fix-aam)
-    (run-stages pd-memo-diagram)
     (run-stages substitutional-relevance)
     (run-stages fix-zoom)
+    (run-stages pd-memo-diagram)
     (run-stages relevance)
     (run-stages relevance-useful)
     (run-stages small-pdcfa)
@@ -1849,24 +1857,24 @@ If you want the giant hack, well, read on.
          #:name 'rw-impl
          @t{Constraint-based analysis [Heintze 93] [Steckler,Wand 96]}
          @t{Abstract compilation [Boucher,Feeley 96]}
-         @t{Structural AI (Astrée)})
+         @t{Structural AI (Astrée) [Blanchet el. al. 2002]})
 
   (slide #:title (with-size 60 @ic{Ext. Related Work (Pushdown)})
          #:name 'rw-pushdown
-         @t{Neil Jones' pushdown analysis}
-         @t{WPDS++}
-         @t{HORS})
+         @t{Neil Jones' pushdown analysis [Jones 1981]}
+         @t{WPDS++ [Reps,Lal,Kidd 2007]}
+         @t{HORS [Knapik et. al. 2002]})
   
   (slide #:title (with-size 60 @ic{Ext. Related Work (Semantics)})
          #:name 'rw-semantics
          @t{K framework [Serbanuta et. al. 2012]}
-         @t{Term reduction systems})
+         @t{Term reduction systems [Klop 92]})
   
   (slide #:title (with-size 60 @ic{Ext. Related Work (Synthesis)})
          #:name 'rw-synth
-         @t{Flow logic}
-         @t{Rhodium}
-         @t{PostHat and all that})
+         @t{Flow logic [Neilson,Neilson 98]}
+         @t{Rhodium [Lerner et. al. 2005]}
+         @t{PostHat and all that [Thakur et. al. 2013]})
 
   (slide #:title (with-size 60 @ic{Future work})
          #:name 'future
@@ -1885,6 +1893,6 @@ If you want the giant hack, well, read on.
 
 ;  (run-stages pd-diagram)
 
-  (run-stages thesis-slide)
+  (run-stages example-rule)
 ;  (finite)
   )
