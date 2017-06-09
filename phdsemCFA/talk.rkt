@@ -19,7 +19,7 @@
     (vc-append
      (big (bold (para #:align 'center "What I (am trying to) do")))
      (blank-line)
-     (para #:align 'center (bt "J. Ian Johnson") ", David Van Horn and Olin Shivers")))))
+     (para #:align 'center (bt "Dionna Glaze") ", David Van Horn and Olin Shivers")))))
 
 (define (start stage)
   (define items0
