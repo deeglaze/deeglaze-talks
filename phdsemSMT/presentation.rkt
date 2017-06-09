@@ -22,7 +22,7 @@
 
 (slide
  #:title "SMT Solvers: Logic and Cookies"
- (t "Presented by: Ian Johnson"))
+ (t "Presented by: Dionna Glaze"))
 
 (slide
  (para (bt "S") "atisfiability: a ∧ b ⇒ c")
