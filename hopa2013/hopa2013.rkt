@@ -259,8 +259,8 @@ Second part of the conversation: concrete makes this easy [demo?]
        (big (bold (para #:align 'center "Concrete Semantics for Pushdown Analysis")))
        (bold (colorize (para #:align 'center "The Essence of Summarization") "brown"))
        (blank-line)
-       (para #:align 'center (colorize @bt{J. Ian Johnson} "navy") " and David Van Horn")
-       (small (para #:align 'center (tt "{ianj,dvanhorn}@ccs.neu.edu")))
+       (para #:align 'center (colorize @bt{Dionna Glaze} "navy") " and David Van Horn")
+       (small (para #:align 'center (tt "drdeeglaze@gmail.com dvanhorn@cs.umd.edu")))
        (t "Northeastern University")
        (t "Boston, MA, USA")))))
 
