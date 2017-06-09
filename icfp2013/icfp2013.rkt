@@ -154,9 +154,9 @@
          (with-size 24
            (ht-append gap-size
                       (vc-append
-                       (hc-append (colorize @bt{J. Ian Johnson} "navy") @t{,})
+                       (hc-append (colorize @bt{Dionna Glaze} "navy") @t{,})
                        (t "Nicholas Labich, David Van Horn")
-                       (small (tt "{ianj,labichn,dvanhorn}@ccs.neu.edu"))
+                       (small (tt "drdeeglaze@gmail.com {labichn,dvanhorn}@ccs.neu.edu"))
                        (blank-line)
                        (vc-append @t{Northeastern University}
                                   @t{Boston, MA, USA}))
