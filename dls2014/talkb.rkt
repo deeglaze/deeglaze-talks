@@ -225,8 +225,8 @@ Talk outline:
          (with-size 32
            (ht-append gap-size
                       (vc-append
-                       (colorize @cbt{J. Ian Johnson} "navy")
-                       (with-size 20 (ic "ianj@ccs.neu.edu"))
+                       (colorize @cbt{Dionna Glaze} "navy")
+                       (with-size 20 (ic "drdeeglaze@gmail.com"))
                        (blank-line)
                        (with-size 28 (vc-append @ct{Northeastern University}
                                                 @ct{Boston, MA, USA})))
