@@ -46,8 +46,8 @@
     (vc-append
      (big (bold (para #:align 'center "Designing Precise Pushdown Higher-Order Flow Analyses")))
      (blank-line)
-     (para #:align 'center (bt "J. Ian Johnson") ", David Van Horn and Olin Shivers")
-     (para #:align 'center (tt "{ianj,dvanhorn,shivers}@ccs.neu.edu"))
+     (para #:align 'center (bt "Dionna Glaze") ", David Van Horn and Olin Shivers")
+     (para #:align 'center (tt "drdeeglaze@gmail.com, {dvanhorn,shivers}@ccs.neu.edu"))
      (t "Northeastern University")
      (t "Boston, MA, USA")))))
 
