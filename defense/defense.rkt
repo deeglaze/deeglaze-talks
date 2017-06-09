@@ -175,7 +175,7 @@ If you want the giant hack, well, read on.
                                 (colorize @ic{of Abstract Machines} '(15 15 74)))))
       (blank 80)
       (colorize @ic{Thesis Defense of} c-neu)
-      (colorize @cbt{J. Ian Johnson} c-neu)
+      (colorize @cbt{Dionna Glaze} c-neu)
       (blank 1 80)
       (with-size 32 (colorize @ic{2015, March 30} c-neu))
       (blank-line))))))
