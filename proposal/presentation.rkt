@@ -153,7 +153,7 @@
          (big (bold (para #:align 'center "Systematic Constructions for")))
          (big (bold (para #:align 'center "Higher-Order Program Analyses")))
          (blank-line)
-         (para #:align 'center @bt{J. Ian Johnson})
+         (para #:align 'center @bt{Dionna Glaze})
          (blank-line)
          (t "Thesis Proposal")
          (blank-line)
